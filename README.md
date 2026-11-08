@@ -1,314 +1,147 @@
-<div align="center">
-  <img src="src/Apps/KugouAvaloniaPlayer/Assets/ka-logo.png" alt="KA Music Logo" width="128" />
+# QPlayer
 
-  <h1>KA Music改</h1>
-
-
-  <p>
-    <a href="https://dotnet.microsoft.com"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
-    <a href="https://github.com/Linsxyx/KugouMusic.NET/releases"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-brightgreen.svg" alt="Platform" /></a>
-    <a href="https://github.com/Linsxyx/KugouMusic.NET/releases"><img src="https://img.shields.io/github/v/release/Linsxyx/KugouMusic.NET" alt="Release" /></a>
-    <a href="https://github.com/Linsxyx/KugouMusic.NET/releases"><img src="https://img.shields.io/github/downloads/Linsxyx/KugouMusic.NET/total?label=download" alt="Downloads" /></a>
-    <a href="https://github.com/Linsxyx/KugouMusic.NET/stargazers"><img src="https://img.shields.io/github/stars/Linsxyx/KugouMusic.NET?style=flat&color=yellow" alt="GitHub stars" /></a>
-  </p>
-
-  <p>
-    <a href="https://github.com/Linsxyx/KugouMusic.NET/releases">下载体验</a>
-    ·
-    <a href="https://github.com/Linsxyx/KugouMusic.NET/issues">问题反馈</a>
-    ·
-    <a href="#页面展示">查看截图</a>
-    ·
-    <a href="#交流群">交流群</a>
-  </p>
-</div>
-
-最好用、最轻量的酷狗音乐概念版播放器。
-
-项目基于 **.NET 10 / 11 + Avalonia** 打造，尽量提供一致的全平台桌面体验，而不是浏览器套壳式客户端。因为作者长期使用 Arch Linux 和 Windows 双系统，而 Linux 上又缺少一款体验完整的酷狗音乐播放器，这个项目就这样诞生了。
-
-> 注：“最好用、最轻量”是项目目标与设计方向。
-
-## 快速开始
-
-- 下载地址：[Releases](https://github.com/Linsxyx/KugouMusic.NET/releases)
-- 问题反馈：[Issues](https://github.com/Linsxyx/KugouMusic.NET/issues)
-- 桌面客户端：`KugouAvaloniaPlayer`
-- 终端播放器：`KgTest`
-- 开发者入口：`KuGou.Net` / `KgWebApi.Net` / `SimpleAudio` / `AvaloniaLyrics`
-- 安卓版正在开发中，[项目地址](https://github.com/umr-xiaomai/kgka_Music_hl)
-
-## 为什么值得用
-
-- 更轻：基于 Avalonia 原生桌面栈，不走 Electron 路线，安装包体积小
-- 更像桌面播放器：托盘、桌面歌词、关闭行为、自动更新这些桌面交互是完整的
-- 对 Linux 更友好，在Linux也能拥有和其他平台一样的托盘和歌词悬浮窗体验
-- 酷狗生态能力完整：登录、推荐、榜单、歌单、搜索、歌词、VIP 状态都已接入
-- 私有媒体库也能接入：支持导入 Jellyfin 音乐媒体库，按专辑生成本地歌单
-- 搬家无压力：支持解析并导入网易云音乐、QQ 音乐歌单，轻松迁移歌单
-- 播放控制更到位：播放队列、随机模式、热切音质、10 段均衡器都可用
-- 智能过渡：在PC端也能体验到丝滑的智能过渡效果
-
-## 页面展示
-
-### 主界面
-
-每日推荐、私人FM。
+> 本项目是非官方开源项目，与 QQ 音乐、腾讯及其关联公司没有隶属、授权或合作关系。
+> 仅用于个人学习和技术研究，请支持正版音乐。
 
 ![主界面](docs/images/main.png)
 
+此项目是一个基于 Avalonia 的桌面音乐播放器(KA_Music)实验项目。项目沿用了 KA Music 的界面和部分播放器结构，并使用 `qq-music-api` 接入 QQ 音乐相关接口。
 
+我做这个项目，主要是因为喜欢 KA Music 这套 UI 和桌面交互，同时希望按自己的使用习惯调整界面和功能。项目开发过程中大量使用了 AI 辅助，代码质量和稳定性仍有改进空间，欢迎 issue 和 pull request。
 
-### 桌面歌词
+## 功能与边界
 
-Apple Music风味的滚动歌词，支持在线歌词和本地歌词，歌词浮窗全平台体验一致。
+- 支持账号登录、搜索、歌单、每日推荐和歌词显示。
+- 支持本地歌曲导入和本地歌单。
+- 支持桌面歌词、播放队列和音质切换。
+- 用户自行登录，不内置公共 Cookie。
+- VIP 歌曲仍需要对应账号的会员权限，本项目不破解会员限制。
+- 不提供音乐下载、DRM 绕过、批量抓取或付费内容解锁。
 
-![歌词界面](docs/images/lyrics.gif)
+## 使用说明
 
-
-## 下载与平台支持
-
-请前往 [Releases](https://github.com/Linsxyx/KugouMusic.NET/releases) 下载最新版本。
-
-- Windows x64：`KugouAvaloniaPlayer-win-x64.exe`
-- Linux x64：`KugouAvaloniaPlayer-linux-x64.AppImage`
-- Linux arm64（手动更新包）：`KugouAvaloniaPlayer-linux-arm64.tar.gz`
-- macOS arm64 安装包：`KugouAvaloniaPlayer-mac-arm64-Setup.pkg`
-- macOS arm64（手动更新包）：`KugouAvaloniaPlayer-mac-arm64.app.zip`
-- macOS x64（手动更新包）：`KugouAvaloniaPlayer-mac-x64.app.zip`
-
-### Linux SQLite 依赖
-
-Linux x64 / arm64 使用系统 SQLite（`libsqlite3.so.0`），不随播放器打包 SQLite 原生库。UOS / Debian / Ubuntu 如缺少该库，可安装运行时包：
-
-```bash
-sudo apt install libsqlite3-0
-```
-
-Windows 和 macOS 继续使用随程序附带的 SQLite。
-
-### 自动更新
-
-项目通过 **Velopack + GitHub Releases** 提供更新能力。
-
-- 支持自动更新的架构：
-  - Windows x64（`KugouAvaloniaPlayer-win-x64.exe`）
-  - Linux x64（`KugouAvaloniaPlayer-linux-x64.AppImage`）
-  - macOS arm64（`KugouAvaloniaPlayer-mac-arm64-Setup.pkg`）
-- 不支持自动更新的架构（仅手动更新）：
-  - Linux arm64（`KugouAvaloniaPlayer-linux-arm64.tar.gz`）
-  - macOS x64（`KugouAvaloniaPlayer-mac-x64.app.zip`）
-- 手动更新方式：
-  - 下载对应架构的新压缩包
-  - 解压后覆盖旧程序目录，或迁移到新目录运行
-  - 手动更新不会自动提示，请定期关注 Releases
-
-### macOS 说明
-
-当前 macOS 安装包未签名，如遇到 Gatekeeper 拦截，可执行：
-
-```bash
-xattr -dr com.apple.quarantine /Applications/KugouAvaloniaPlayer.app
-```
-
-如果 `KugouAvaloniaPlayer-mac-arm64-Setup.pkg` 无法安装，可以改用 `KugouAvaloniaPlayer-mac-arm64.app.zip` 解压运行；`KugouAvaloniaPlayer-mac-x64.app.zip` 本身就是手动更新包，不支持自动更新。
-
-## 核心功能
-
-### 在线内容
-
-- 手机号验证码登录
-- 二维码扫码登录
-- 登录持久化与自动恢复
-- 每日推荐
-- 发现歌单与推荐内容
-- 排行榜与榜单歌曲分页
-- 歌手详情页
-- 搜索歌曲、歌单、专辑
-- 用户信息与 VIP 状态展示
-
-### 本地音乐库
-
-- 本地音乐库首页，集中管理本地歌单、导入文件夹和 Jellyfin 媒体库
-- 可导入本地音乐文件夹，上千首歌曲也能快速导入
-- 支持刷新已导入的本地文件夹和 Jellyfin 媒体库
-- 支持为本地歌单和本地歌曲设置封面
-- 支持匹配歌词与歌手
-- 未登录可播放本地歌曲
-- 支持 `MP3`、`FLAC`、`WAV`、`OGG`、`M4A`、`AAC`、`WEBM`、`DSF`、`DFF` 等音频格式
-- 支持本地 KRC / LRC / VTT / QRC 歌词
-
-### 桌面体验
-
-- 桌面歌词浮窗
-- 歌词逐字高亮与进度动画
-- 系统托盘菜单
-- 关闭行为可配置：退出程序 / 最小化到托盘
-- 自动更新
-
-### 播放控制与音质
-
-- 在线歌曲播放
-- 播放队列管理
-- 下一首播放 / 随机模式
-- 热切播放音质
-- 10 段均衡器，支持预设与自定义
-- 收藏当前歌曲、在线歌单增删改
-
-### 跨平台支持
-
-- Windows、Linux、macOS 三端可运行
-- Linux 提供 `AppImage`
-- 桌面歌词鼠标穿透支持跨平台实现
-
-## 为什么它在 Linux 上更值得用
-
-很多音乐播放器对于Linux的支持很差，无法拥有和其他平台一样的体验。`KA Music` 的目标不是停留在能运行，而是尽量把 Linux 桌面用户真正会在意的体验补齐，托盘、桌面歌词、本地播放、基础设置和日常交互都要可用，歌词悬浮窗能像Windows平台一样鼠标穿透、置顶、透明。
-
-## 常见问题
-
-### 1. 为什么我本地运行时提示无法自动更新？
-
-自动更新依赖 Velopack 安装。若你通过 `dotnet run` 或手动复制文件运行，应用会跳过自动更新检查。请使用 Releases 安装包安装。
-
-### 2. 为什么未登录时不能播放在线歌曲？
+### 登录和播放
 
 当前在线播放要求有效登录态。你可以先登录，也可以直接播放本地导入的歌曲。
 
-### 3. 为什么应用显示名是 KA Music，但安装包名还是 KugouAvaloniaPlayer？
+### 无法播放怎么办
 
-这是为了兼容历史版本升级链路。应用显示名可以继续优化，但安装包标识保持稳定，能避免老版本升级断链。
+1. 确认当前账号有对应歌曲的播放权限。
+2. 如果会员账号仍然获取不到 URL，退出后重新登录。
+3. 如果已经获取到 URL 但无法播放，尝试关闭系统代理。
+4. 如果第三方接口临时不可用，请稍后再试；接口变化可能导致部分功能失效。
 
-### 4. 无法播放怎么办？
+### 歌单说明
 
-获取不到 url 重新登录,获取到url但播放不了关掉系统代理
+「我的歌单」页当前提供三类歌单：
 
-### 5. Windows下自动更新失败了怎么办
+- **本地歌单**：无需登录，在「我的歌单」页点击「新建歌单」创建。歌曲保存在本机 `AppSqliteStore`，支持创建、重命名、删除和移除歌曲。QQ 音乐接口暂无云端写歌单能力，因此本地歌单不会同步到 QQ 云端。
+- **我喜欢的音乐**：需要 QQ 登录，自动解析当前账号的「我喜欢」歌单并展示歌曲，具体数量以账号实际数据为准。
+- **QQ 云端歌单**：需要 QQ 登录，可查看账号创建的歌单并播放其中的歌曲。云端删除或移除歌曲暂不支持，因为当前接口只读。
 
-检查是否移动文件，或者检查是否安装到了Program Files 或 Windows 或 System 这类的高权限目录下。
+## 自动更新与版本覆盖
 
-### 6. QQ 音乐歌单功能说明（QQ 音乐客户端模式）
+本项目的更新检查代码沿用了上游 KA Music 的部分实现。建议关闭自动更新功能，否则可能下载到上游 KA Music 的版本并覆盖当前客户端。
 
-本播放器已接入 QQ 音乐接口（本地 Node 服务 `localhost:3200`，见 `src/Libraries/QqMusic.Net/README.md`）。「我的歌单」页当前提供三类歌单：
+## 从源码运行
 
-- **本地歌单**（无需登录）：在「我的歌单」页点「新建歌单」创建，歌曲保存在本机（AppSqliteStore），可创建/重命名/删除/移除歌曲；QQ 音乐接口暂无云端写歌单能力，因此创建的歌单不会同步到 QQ 云端。
-- **我喜欢的音乐**（需 QQ 登录）：自动解析你账号的「我喜欢」歌单并展示全部歌曲（实测 782 首可加载播放）。
-- **QQ 云端歌单**（需 QQ 登录）：导入你账号创建的歌单，可查看歌曲并播放；云端删除/移除歌曲暂不支持（接口只读）。
+### 环境要求
 
-歌曲右键「添加到歌单」时：QQ 登录状态下弹出本地歌单 + QQ 云端歌单；选择本地歌单直接加入，选择云端歌单会提示暂不支持写入。
+- Windows 10/11 x64
+- .NET SDK 10.0.400 或兼容版本
+- Node.js 20 或更高版本，仅从源码启动 API 时需要
 
-### 7. 为什么「每日推荐 / 私人 FM」可能为空？
+### 启动 API
 
-QQ 音乐服务端对这两个接口做了登录态校验（上游 qq-music-api v2.6.0 硬编码 uin/login 为 0，官方返回 500003），当前版本会显示空态并提示。这是上游接口限制，非本客户端问题。
+API 使用本地 Node 服务，默认地址为 `http://localhost:3200`。
 
-
-
-## 更新日志
-
-完整版本历史请查看 [Releases](https://github.com/Linsxyx/KugouMusic.NET/releases)。
-
-### v4.1.0
-- 修复linux-arm64 无法正常使用
-- 修复部分已知问题
-
-### v4.0.0
-- 全新播放主题
-- 桌面歌词记忆位置与锁定效果
-- 修复部分页面显示效果
-- 更换全新图标
-
-### v3.3.0
-- 播放页新增两个仿Folia播放器的播放主题
-- 修复部分已知问题
-
-
-## 开发者入口
-
-这个仓库不只有播放器本体，也包含围绕酷狗能力做的几个底层项目。
-
-- `src/Apps/KugouAvaloniaPlayer`：Avalonia 桌面客户端，也就是现在的 `KA Music`
-- `src/Apps/KgTest`：终端 TUI 播放器
-- `src/Libraries/KuGou.Net`：酷狗业务 SDK，封装登录、搜索、歌单、歌词、榜单、用户等能力
-- `src/Apps/KgWebApi.Net`：基于 SDK 的 ASP.NET Core Web API 封装
-- `src/Libraries/SimpleAudio`：基于 ManagedBass 的跨平台播放与音效层
-- `src/Libraries/AvaloniaLyrics`：歌词控件库
-- `src/Native/KuGou.Net.Native`：把 SDK 能力导出为 Native AOT 友好的 C ABI
-
-## 终端播放器 KgTest
-
-`KgTest` 一个测试用的终端播放器，功能还算凑合，目前也把智能过渡功能加上了，想试试的可以克隆仓库运行。详细功能、快捷键和配置说明见 [src/Apps/KgTest/README.md](src/Apps/KgTest/README.md)。
-
-## 本地开发
-
-项目同时支持 `net10.0` 和 `net11.0`，仅 .NET 11 启用运行时异步；CI 使用 .NET 11 SDK，发布产物以 .NET 10 为目标。构建全部目标需要 .NET 11 SDK，运行时使用 `-f` 选择框架。Windows 播放器对应使用 `net10.0-windows10.0.19041.0` 或 `net11.0-windows10.0.19041.0`。
-
-```bash
-git clone https://github.com/Linsxyx/KugouMusic.NET.git
-cd KugouMusic.NET
-
-dotnet restore KugouMusic.NET.slnx
-dotnet build KugouMusic.NET.slnx
-
-dotnet run -f net11.0 --project src/Apps/KugouAvaloniaPlayer/KugouAvaloniaPlayer.csproj
+```powershell
+cd qq-music-api
+npm install
+npm run dev
 ```
 
-如需运行终端播放器：
+### 启动客户端
 
-```bash
-dotnet run -f net11.0 --project src/Apps/KgTest/KgTest.csproj
+```powershell
+dotnet run --project src\Apps\KugouAvaloniaPlayer\KugouAvaloniaPlayer.csproj -p:TargetFrameworks=net10.0-windows10.0.19041.0
 ```
-
-如需运行 Web API：
-
-```bash
-dotnet run -f net11.0 --project src/Apps/KgWebApi.Net/KgWebApi.Net.csproj
-```
-
-Web API 文档（开发环境）：`http://localhost:5058/scalar/v1`
 
 ## 仓库结构
 
+客户端仓库的建议结构如下。目录名 `KugouAvaloniaPlayer`、`KuGou.Net` 和 `KugouTaskbar*` 是从上游沿用下来的内部名称，不代表当前项目仍使用酷狗接口。
+
 ```text
-KugouMusic.NET
-├─ src
-│  ├─ Apps
-│  │  ├─ KugouAvaloniaPlayer   # Avalonia 桌面客户端
-│  │  ├─ KgTest                # 终端 TUI 播放器
-│  │  └─ KgWebApi.Net          # ASP.NET Core Web API
-│  ├─ Libraries
-│  │  ├─ KuGou.Net             # 核心 SDK
-│  │  ├─ SimpleAudio           # 音频播放与音效层
-│  │  └─ AvaloniaLyrics        # Avalonia 歌词控件
-│  └─ Native
-│     └─ KuGou.Net.Native      # Native AOT 导出层
-└─ docs/images           # README 截图资源
+QPlayer/
+├─ src/
+│  ├─ Apps/
+│  │  ├─ KugouAvaloniaPlayer/          # Avalonia 桌面客户端
+│  │  ├─ KgTest/                       # 终端 TUI 播放器
+│  │  ├─ KgWebApi.Net/                 # ASP.NET Core Web API
+│  │  └─ AvaloniaSilkEffects.Showcase/ # 特效展示程序
+│  ├─ Libraries/
+│  │  ├─ QqMusic.Net/                  # QQ 音乐接口 SDK
+│  │  ├─ KuGou.Net/                    # 上游遗留 SDK，保留用于对照和兼容
+│  │  ├─ SimpleAudio/                  # 音频播放与音效层
+│  │  ├─ AvaloniaLyrics/               # Avalonia 歌词控件
+│  │  └─ AvaloniaSilkEffects/          # 背景特效库
+│  ├─ Native/
+│  │  ├─ KuGou.Net.Native/             # Native AOT 导出层
+│  │  ├─ KugouTaskbarLyricsNative/     # 任务栏歌词原生代码
+│  │  └─ KugouTaskbarNative/           # 任务栏集成原生代码
+│  └─ Tests/
+│     └─ AvaloniaSilkEffects.Tests/    # 特效库测试
+├─ docs/
+│  ├─ images/                          # README 截图和演示图
+│  └─ branding/                        # 品牌资源，公开前需替换
+├─ tools/                              # 辅助脚本
+├─ Directory.Packages.props
+├─ global.json
+├─ KugouMusic.NET.slnx
+├─ LICENSE
+├─ THIRD_PARTY_NOTICES.md
+└─ README.md
 ```
 
-## 交流群
+`qq-music-api` 建议作为独立仓库发布，不要在客户端仓库里提交它的 `.git`、`node_modules` 或 `dist`。如果把它放进同一个仓库，应先删除其内部 `.git`，再用普通目录方式提交，不能只提交一个子模块指针。
 
-- QQ群：1081635731 
+API 仓库的主要结构：
 
-## 👍 灵感来源
+```text
+QPlayer-API/
+├─ api/                  # API 入口和部署相关代码
+├─ config/               # 配置模板，不提交用户登录信息
+├─ docs/                 # API 文档
+├─ packages/             # npm 工作区包
+├─ plugins/              # 插件
+├─ public/               # 接口浏览页面等静态资源
+├─ scripts/              # 构建和辅助脚本
+├─ src/                  # API 源码
+├─ tests/                # 测试
+├─ package.json
+├─ LICENSE
+├─ THIRD_PARTY_NOTICES.md
+└─ README.md
+```
+
+## 来源与许可
+
+- 客户端基于 [Linsxyx/KugouMusic.NET](https://github.com/Linsxyx/KugouMusic.NET) 修改，原作者 Linsxyx，MIT License。
+- API 基于 [sansenjian/qq-music-api](https://github.com/sansenjian/qq-music-api) 修改，上游为 [Rain120/qq-music-api](https://github.com/Rain120/qq-music-api)，MIT License。
+- 本项目修改部分按 MIT License 发布，完整声明见 `LICENSE` 和 `THIRD_PARTY_NOTICES.md`。
+
+灵感来源：
 
 - [KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)
 - [folia-major](https://github.com/chthollyphile/folia-major)
+- [sansenjian/qq-music-api](https://github.com/sansenjian/qq-music-api)
+- [Linsxyx/KugouMusic.NET](https://github.com/Linsxyx/KugouMusic.NET)
 
-## ⚠️ 免责声明
+## 免责声明
 
-本项目是基于公开 API 接口开发的第三方音乐客户端，仅供个人学习和技术研究使用。
-- **数据来源**：所有音乐数据通过公开接口获取，本项目不存储、不传播任何音频文件
-- **版权声明**：音乐内容版权归原平台及版权方所有，请尊重知识产权，支持正版音乐
-- **使用限制**：禁止将本项目用于任何商业用途或违法行为
-- **责任声明**：因使用本项目产生的任何法律纠纷或损失，均由使用者自行承担
-- **争议处理**：如果官方音乐平台觉得本项目不妥，请通过 Issues 联系
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=Linsxyx%2FKugouMusic.NET&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Linsxyx/KugouMusic.NET&type=timeline&theme=dark&legend=top-left&sealed_token=wzW4_hbpIKDoQdW7tn5bcNpH6c7DFxIYPqvGh2wibQkklM_uKiVmIdmh3NvI12WBJghhp-mskCsRaaDsIxRzwtZMEQnAtlp5BOhGfj0tb29oSa9jzx0ACg" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Linsxyx/KugouMusic.NET&type=timeline&legend=top-left&sealed_token=wzW4_hbpIKDoQdW7tn5bcNpH6c7DFxIYPqvGh2wibQkklM_uKiVmIdmh3NvI12WBJghhp-mskCsRaaDsIxRzwtZMEQnAtlp5BOhGfj0tb29oSa9jzx0ACg" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Linsxyx/KugouMusic.NET&type=timeline&legend=top-left&sealed_token=wzW4_hbpIKDoQdW7tn5bcNpH6c7DFxIYPqvGh2wibQkklM_uKiVmIdmh3NvI12WBJghhp-mskCsRaaDsIxRzwtZMEQnAtlp5BOhGfj0tb29oSa9jzx0ACg" />
- </picture>
-</a>
+- 本项目按 MIT License 发布，维护者不提供商业授权、商业支持或可用性保证。
+- 项目仓库不包含音频文件；运行时的缓存和本地歌单只保存在用户本机。
+- 所有音乐、封面、歌词及相关内容的版权归原平台及相应权利人所有。
+- 本项目不保证第三方接口长期可用，接口变化可能导致部分功能失效。
+- 用户应自行遵守平台服务条款，并承担账号和登录凭证的安全责任。
+- 如权利人认为本项目侵犯其权益，请联系维护者，维护者会及时删除相关内容。
