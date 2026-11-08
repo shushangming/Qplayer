@@ -1,0 +1,153 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.19041.0;net11.0-windows10.0.19041.0</TargetFrameworks>
+        <Features Condition="'$(TargetFramework)' == 'net11.0' Or '$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">$(Features);runtime-async=on</Features>
+        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net10.0;net11.0</TargetFrameworks>
+        <AssemblyName>QqMusicPlayer</AssemblyName>
+        <PackageId>QqMusicPlayer</PackageId>
+        <Nullable>enable</Nullable>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <ApplicationIcon>Assets\ka-music.ico</ApplicationIcon>
+
+        <Version Condition="'$(BUILD_VERSION)' == ''">1.0.0</Version>
+        <Version Condition="'$(BUILD_VERSION)' != ''">$(BUILD_VERSION)</Version>
+
+        <PublishTrimmed>true</PublishTrimmed>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <!-- Prefer the target RID; use the host OS only for RID-less local builds. -->
+    <PropertyGroup Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux-')) Or ('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Linux')))">
+        <UseSystemSqlite>true</UseSystemSqlite>
+        <DefineConstants>$(DefineConstants);KUGOU_SYSTEM_SQLITE</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([System.String]::Copy('$(TargetFramework)').Contains('-windows'))">
+        <DefineConstants>$(DefineConstants);KUGOU_WINDOWS</DefineConstants>
+    </PropertyGroup>
+    
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <DefineConstants>$(DefineConstants);KUGOU_MACOS</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) and !$([MSBuild]::IsOSPlatform('OSX'))">
+        <DefineConstants>$(DefineConstants);KUGOU_LINUX</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\**"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AsyncImageLoader.Avalonia" />
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
+        <PackageReference Include="Avalonia.Desktop" />
+        <PackageReference Include="Avalonia.Themes.Fluent" />
+        <PackageReference Include="Avalonia.Fonts.Inter" />
+        <PackageReference Include="LibVLCSharp" />
+        <PackageReference Include="VideoLAN.LibVLC.Windows" />
+        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport">
+            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="CommunityToolkit.Mvvm"/>
+        <PackageReference Include="MemoryPack" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Condition="'$(UseSystemSqlite)' != 'true'" />
+        <PackageReference Include="Microsoft.Data.Sqlite.Core" Condition="'$(UseSystemSqlite)' == 'true'" />
+        <PackageReference Include="SQLitePCLRaw.bundle_sqlite3" Condition="'$(UseSystemSqlite)' == 'true'" />
+        <!-- bundle_sqlite3 ends at 2.1.11; match the provider to Sqlite.Core's SQLitePCLRaw 3.x. -->
+        <PackageReference Include="SQLitePCLRaw.provider.sqlite3" Condition="'$(UseSystemSqlite)' == 'true'" />
+        <PackageReference Include="Pure.DI">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Serilog"/>
+        <PackageReference Include="Serilog.Extensions.Logging"/>
+        <PackageReference Include="Serilog.Sinks.Async" />
+        <PackageReference Include="Serilog.Sinks.Console"/>
+        <PackageReference Include="Serilog.Sinks.Debug"/>
+        <PackageReference Include="Serilog.Sinks.File" />
+        <PackageReference Include="SukiUI"/>
+        <PackageReference Include="Svg.Controls.Skia.Avalonia"/>
+        <PackageReference Include="System.Security.Cryptography.ProtectedData"/>
+        <PackageReference Include="Tmds.DBus.Protocol"/>
+        <PackageReference Include="Velopack" />
+        <PackageReference Include="ZLinq" />
+        <PackageReference Include="z440.atl.core" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Libraries\AvaloniaSilkEffects\AvaloniaSilkEffects.csproj"/>
+        <ProjectReference Include="..\..\Libraries\AvaloniaLyrics\AvaloniaLyrics.csproj"/>
+        <ProjectReference Include="..\..\Libraries\SimpleAudio\SimpleAudio.csproj"/>
+        <ProjectReference Include="..\..\Libraries\KuGou.Net\KuGou.Net.csproj"/>
+        <ProjectReference Include="..\..\Libraries\QqMusic.Net\QqMusic.Net.csproj"/>
+    </ItemGroup>
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <Content Include="Assets\*.ico" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="Native\QqMusicTaskbarNative.dll"
+                 CopyToOutputDirectory="PreserveNewest"
+                 CopyToPublishDirectory="PreserveNewest"
+                 TargetPath="QqMusicTaskbarNative.dll"
+                 Condition="Exists('Native\QqMusicTaskbarNative.dll')" />
+        <Content Include="Native\QqMusicTaskbarLyrics.exe"
+                 CopyToOutputDirectory="PreserveNewest"
+                 CopyToPublishDirectory="PreserveNewest"
+                 TargetPath="QqMusicTaskbarLyrics.exe" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Update="Views\MyPlaylistsView.axaml.cs">
+            <DependentUpon>MyPlaylistsView.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\LocalMusicLibraryView.axaml.cs">
+            <DependentUpon>LocalMusicLibraryView.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\DailyRecommendView.axaml.cs">
+            <DependentUpon>DailyRecommendView.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Controls\LoginControl.axaml.cs">
+            <DependentUpon>LoginControl.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Views\SettingView.axaml.cs">
+            <DependentUpon>UserView.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Views\SingerView.axaml.cs">
+            <DependentUpon>SingerView.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Controls\MediaCard.axaml.cs">
+            <DependentUpon>MediaCard.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Views\DiscoverView.axaml.cs">
+            <DependentUpon>DiscoverView.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Views\DesktopLyricLockOverlayWindow.axaml.cs">
+          <DependentUpon>DesktopLyricLockOverlayWindow.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Views\EqSettingsView.axaml.cs">
+          <DependentUpon>EqSettingsView.axaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\NowPlayingView.axaml.cs">
+          <DependentUpon>NowPlayingView.axaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\NowPlayingView.MoreFlyout.cs">
+          <DependentUpon>NowPlayingView.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Controls\TrackPlaylistSearchDialog.axaml.cs">
+          <DependentUpon>TrackPlaylistSearchDialog.axaml</DependentUpon>
+        </Compile>
+        <Compile Update="Controls\LyricMatchDialog.axaml.cs">
+          <DependentUpon>LyricMatchDialog.axaml</DependentUpon>
+        </Compile>
+    </ItemGroup>
+</Project>

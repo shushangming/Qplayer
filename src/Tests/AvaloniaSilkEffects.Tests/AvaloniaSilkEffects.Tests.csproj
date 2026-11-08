@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <Features Condition="'$(TargetFramework)' == 'net11.0'">$(Features);runtime-async=on</Features>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <ProjectReference Include="../../Libraries/AvaloniaSilkEffects/AvaloniaSilkEffects.csproj" />
+    <ProjectReference Include="../../Libraries/AvaloniaLyrics/AvaloniaLyrics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Compile the VM-independent Fume adapter without building the player. -->
+    <Compile Include="../../Apps/KugouAvaloniaPlayer/Controls/FumeBackgroundScene.cs" Link="Fume/FumeBackgroundScene.cs" />
+    <Compile Include="../../Apps/KugouAvaloniaPlayer/Controls/FumeArticleLayout.cs" Link="Fume/FumeArticleLayout.cs" />
+    <Compile Include="../../Apps/KugouAvaloniaPlayer/Controls/FumeRenderFrame.cs" Link="Fume/FumeRenderFrame.cs" />
+    <Compile Include="../../Apps/KugouAvaloniaPlayer/Controls/FumePlayback.cs" Link="Fume/FumePlayback.cs" />
+    <Compile Include="../../Apps/KugouAvaloniaPlayer/Controls/FumeEffectScene.cs" Link="Fume/FumeEffectScene.cs" />
+  </ItemGroup>
+</Project>

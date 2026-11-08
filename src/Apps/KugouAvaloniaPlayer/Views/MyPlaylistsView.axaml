@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:localControls="using:KugouAvaloniaPlayer.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="KugouAvaloniaPlayer.Views.MyPlaylistsView"
+             x:DataType="vm:MyPlaylistsViewModel">
+
+    <Grid Margin="15">
+        <localControls:SongCollectionDetailView
+            PlaybackCommands="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).Player}"
+            SongInteractions="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).SongInteractions}"
+            RemoveSongCommand="{Binding RemoveSongFromPlaylistCommand}"
+            IsVisible="{Binding IsShowingSongs}"
+            Cover="{Binding SelectedPlaylist.Cover}"
+            Title="{Binding SelectedPlaylist.Name}"
+            Songs="{Binding SelectedPlaylistSongs}"
+            LoadMoreCommand="{Binding LoadMoreCommand}"
+            BackCommand="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).NavigateBackCommand}"
+            IsLoadingMore="{Binding IsLoadingMore}"
+            ListMargin="0"
+            EnableSongSearch="True"
+            ShowAddLoadedSongsToQueueButton="True"
+            EnableMultiSelect="True"
+            UseBatchModeButton="True"
+            EnableDragReorder="True"
+            BatchRemoveCommand="{Binding BatchRemoveFromPlaylistCommand}"
+            BatchCopyToPlaylistCommand="{Binding BatchCopyToPlaylistCommand}"
+            BatchMoveToPlaylistCommand="{Binding BatchMoveToPlaylistCommand}"
+            SongDragReorderCommand="{Binding DragReorderSongsCommand}"
+            HeroDropdownLabel="排序"
+            HeroDropdownItems="{Binding SortOptions}"
+            HeroDropdownSelectedItem="{Binding CurrentSortText, Mode=TwoWay}" />
+    </Grid>
+</UserControl>

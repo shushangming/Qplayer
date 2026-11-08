@@ -1,0 +1,111 @@
+using System.Text;
+using System.Text.Json;
+using KuGou.Net.Protocol.Session;
+using KuGou.Net.Protocol.Transport;
+using KuGou.Net.util;
+
+namespace KuGou.Net.Infrastructure.Http.Handlers;
+
+public class KgSignatureHandler(KgSessionManager sessionManager) : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        if (!request.Options.TryGetValue(new HttpRequestOptionsKey<KgRequest>("KgRequestDetail"), out var kgReq))
+            return await base.SendAsync(request, cancellationToken);
+
+        var session = sessionManager.Session;
+        var timeStr = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+
+
+        var currentDfid = kgReq.SessionOverrides?.GetValueOrDefault("dfid")
+                          ?? kgReq.SpecificDfid
+                          ?? session.Dfid;
+        //var currentDfid = "-";
+        var currentMid = KgUtils.CalcNewMid(currentDfid);
+        var currentUuid = KgUtils.Md5(currentDfid + currentMid);
+
+        var mergedParams = new Dictionary<string, string>(kgReq.Params);
+
+        var userId = kgReq.SessionOverrides?.GetValueOrDefault("userid") ?? session.UserId;
+        var token = kgReq.SessionOverrides?.GetValueOrDefault("token") ?? session.Token;
+
+        if (!kgReq.ClearDefaultParams)
+        {
+            mergedParams.TryAdd("appid", KuGouConfig.AppId);
+            mergedParams.TryAdd("clientver", KuGouConfig.ClientVer);
+            mergedParams.TryAdd("dfid", currentDfid);
+            mergedParams.TryAdd("mid", currentMid);
+            mergedParams.TryAdd("uuid", currentUuid);
+            if (!mergedParams.ContainsKey("userid")) mergedParams["userid"] = userId;
+        }
+
+        if (!kgReq.ClearDefaultParams) mergedParams.TryAdd("clienttime", timeStr);
+
+        if (!kgReq.ClearDefaultParams && !mergedParams.ContainsKey("token") && !string.IsNullOrEmpty(token))
+            mergedParams["token"] = token;
+
+        if (kgReq.SignatureType == SignatureType.V5 && mergedParams.ContainsKey("hash"))
+        {
+            var paramMid = mergedParams.GetValueOrDefault("mid", currentMid);
+            mergedParams["key"] = KgSigner.CalcV5Key(mergedParams["hash"], mergedParams["userid"], paramMid);
+        }
+
+        var jsonBody = "";
+        if (request.Method == HttpMethod.Post && kgReq.Body != null)
+        {
+            jsonBody = RequestBodyJsonSerializer.Serialize(kgReq.Body, kgReq.BodyTypeInfo);
+
+            request.Content = new StringContent(jsonBody, Encoding.UTF8, kgReq.ContentType);
+        }
+        else if (request.Method == HttpMethod.Post && !string.IsNullOrEmpty(kgReq.RawBody))
+        {
+            jsonBody = kgReq.RawBody;
+        }
+        else if (request.Method == HttpMethod.Post && kgReq.BinaryBody is { Length: > 0 })
+        {
+            jsonBody = Convert.ToBase64String(kgReq.BinaryBody);
+        }
+
+        var signature = "";
+        if (kgReq.NotSignature || kgReq.SignatureType == SignatureType.None)
+            signature = "";
+        else if (kgReq.SignatureType == SignatureType.Web)
+            signature = KgSigner.CalcWebQrSignature(mergedParams);
+        else if (kgReq.SignatureType == SignatureType.Register)
+            signature = KgSigner.CalcPostSignature(mergedParams, jsonBody);
+        else if (kgReq.BinaryBody is { Length: > 0 } && kgReq.SignatureType == SignatureType.OfficialAndroid)
+            signature = KgSigner.CalcPostSignature(mergedParams, kgReq.BinaryBody, KuGouConfig.OfficialSalt);
+        else if (kgReq.BinaryBody is { Length: > 0 })
+            signature = KgSigner.CalcPostSignature(mergedParams, kgReq.BinaryBody);
+        else if (kgReq.SignatureType == SignatureType.OfficialAndroid)
+            signature = KgSigner.CalcPostSignature(mergedParams, jsonBody, KuGouConfig.OfficialSalt);
+        else
+            signature = KgSigner.CalcPostSignature(mergedParams, jsonBody);
+
+        if (!string.IsNullOrEmpty(signature)) mergedParams["signature"] = signature;
+
+
+        var queryString = string.Join("&", mergedParams.Select(x => $"{x.Key}={Uri.EscapeDataString(x.Value)}"));
+        var uriBuilder = new UriBuilder(request.RequestUri!) { Query = queryString };
+        request.RequestUri = uriBuilder.Uri;
+
+
+        if (!string.IsNullOrEmpty(kgReq.SpecificRouter))
+            request.Headers.TryAddWithoutValidation("x-router", kgReq.SpecificRouter);
+
+        if (!request.Headers.Contains("User-Agent"))
+            request.Headers.TryAddWithoutValidation("User-Agent", KuGouConfig.UserAgent);
+        request.Headers.TryAddWithoutValidation("dfid", currentDfid);
+        request.Headers.TryAddWithoutValidation("mid", currentMid);
+        if (mergedParams.TryGetValue("clienttime", out var clientTime))
+            request.Headers.TryAddWithoutValidation("clienttime", clientTime);
+
+        request.Headers.TryAddWithoutValidation("kg-rc", "1");
+        request.Headers.TryAddWithoutValidation("kg-thash", "5d816a0");
+        request.Headers.TryAddWithoutValidation("kg-rec", "1");
+        request.Headers.TryAddWithoutValidation("kg-rf", "B9EDA08A64250DEFFBCADDEE00F8F25F");
+
+        return await base.SendAsync(request, cancellationToken);
+    }
+}

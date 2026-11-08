@@ -1,0 +1,97 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:localControls="using:KugouAvaloniaPlayer.Controls">
+    <Style Selector="ListBox.SongList">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Name="BgLayer"
+                            Background="Transparent" />
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Background="Transparent"
+                                      Padding="{TemplateBinding Padding}" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:selected /template/ Border#BgLayer">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:pointerover /template/ Border#BgLayer">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:pressed /template/ Border#BgLayer">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:selected localControls|SongListItemControl TextBlock.SongArtist,
+                     ListBox.SongList > ListBoxItem:selected:pointerover localControls|SongListItemControl TextBlock.SongArtist">
+        <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:selected localControls|SongListItemControl TextBlock.SongAlbum,
+                     ListBox.SongList > ListBoxItem:selected:pointerover localControls|SongListItemControl TextBlock.SongAlbum">
+        <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
+    </Style>
+
+    <Style Selector="ListBox.SongList > ListBoxItem:selected localControls|SongListItemControl TextBlock.SongDuration,
+                     ListBox.SongList > ListBoxItem:selected:pointerover localControls|SongListItemControl TextBlock.SongDuration">
+        <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
+    </Style>
+
+    <Style Selector="Border.SongListItemShell">
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- 批量选择模式：选中的行加淡蓝底色，与未选中行明显区分 -->
+    <Style Selector="ListBox.SongList.batch > ListBoxItem:selected Border.SongListItemShell">
+        <Setter Property="Background" Value="#223B82F6" />
+    </Style>
+
+    <Style Selector="ListBox.SongList.batch > ListBoxItem:selected:pointerover Border.SongListItemShell">
+        <Setter Property="Background" Value="#2E3B82F6" />
+    </Style>
+
+    <Style Selector="Border.SongListItemShell:pointerover">
+        <Setter Property="RenderTransform" Value="scale(1.01)" />
+    </Style>
+
+    <Style Selector="Border.SongListItemShell:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.98)" />
+    </Style>
+
+    <Style Selector="Border.SongListHoverOverlay">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Border.SongListItemShell:pointerover Border.SongListHoverOverlay">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+</Styles>

@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:converters="clr-namespace:KugouAvaloniaPlayer.Converters"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="KugouAvaloniaPlayer.Views.LoginView"
+             x:DataType="vm:LoginViewModel"
+             MinWidth="280"
+             MaxWidth="420"
+             Name="Root"
+             behaviors:InteractionBehaviors.DetachedFromVisualTreeCommand="{Binding StopQrPollingOnUnloadCommand}">
+
+    <UserControl.Resources>
+        <converters:Base64ImageConverter x:Key="Base64ImageConverter" />
+    </UserControl.Resources>
+
+    <StackPanel Spacing="15" Margin="20">
+        <!-- 顶部切换选项 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20" Margin="0,0,0,10">
+            <RadioButton Classes="Segmented" Content="扫码登录" IsChecked="{Binding IsQrLoginSelected}" />
+            <RadioButton Classes="Segmented" Content="手机号登录" IsChecked="{Binding !IsQrLoginSelected}" />
+        </StackPanel>
+
+        <!-- 二维码登录面板 -->
+        <StackPanel IsVisible="{Binding IsQrLoginSelected}" Spacing="15" Margin="0,10">
+            <Border Width="180" Height="180" Background="#F0F0F0" CornerRadius="10" ClipToBounds="True"
+                    HorizontalAlignment="Center">
+                <Panel>
+                    <Image Source="{Binding QrCodeImageUrl, Converter={StaticResource Base64ImageConverter}}"
+                           Stretch="Uniform" />
+
+                    <!-- 加载圈 -->
+                    <suki:Loading Width="40" Height="40"
+                                  IsVisible="{Binding QrCodeImageUrl, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+
+                    <!-- 过期遮罩层 -->
+                    <Border Background="#A0000000" IsVisible="{Binding IsQrExpired}">
+                        <Button Classes="Basic" Content="点击刷新" Foreground="White"
+                                Command="{Binding RefreshQrCodeCommand}" HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                    </Border>
+                </Panel>
+            </Border>
+
+            <TextBlock Text="{Binding QrStatusMessage}"
+                       FontSize="14"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource SukiLiquid2}" />
+        </StackPanel>
+
+        <!-- 手机号登录面板 -->
+        <StackPanel IsVisible="{Binding !IsQrLoginSelected}" Spacing="15" Margin="0,10">
+            <!-- 手机号输入 -->
+            <TextBox Text="{Binding Mobile}"
+                     PlaceholderText="手机号"
+                     MaxLength="11" />
+
+            <!-- 验证码输入 + 发送按钮 -->
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBox Grid.Column="0"
+                         Text="{Binding Code}"
+                         PlaceholderText="验证码"
+                         MaxLength="6" />
+                <Button Grid.Column="1"
+                        Classes="Basic"
+                        Content="{Binding Countdown, Converter={StaticResource CountdownTextConverter}}"
+                        IsEnabled="{Binding Countdown, Converter={StaticResource CountdownEnabledConverter}}"
+                        Command="{Binding SendCodeCommand}"
+                        Foreground="{DynamicResource SukiLowText}"
+                        Margin="10,0,0,0"
+                        Width="90" />
+            </Grid>
+
+            <!-- 登录按钮 -->
+            <Button Classes="Standard"
+                    Content="登录"
+                    Command="{Binding LoginCommand}"
+                    IsEnabled="{Binding !IsLoggingIn}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" />
+
+            <StackPanel IsVisible="{Binding HasLoginAccountChoices}" Spacing="8">
+                <TextBlock Text="选择要登录的账号"
+                           FontSize="12"
+                           Foreground="{DynamicResource SukiLowText}" />
+                <ItemsControl ItemsSource="{Binding LoginAccountChoices}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LoginAccountOptionViewModel">
+                            <Button Classes="Basic"
+                                    Command="{Binding #Root.((vm:LoginViewModel)DataContext).SelectLoginAccountCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding !#Root.((vm:LoginViewModel)DataContext).IsLoggingIn}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Margin="0,0,0,8"
+                                    Padding="10">
+                                <Grid ColumnDefinitions="40,*" ColumnSpacing="10">
+                                    <Border Width="40"
+                                            Height="40"
+                                            CornerRadius="20"
+                                            ClipToBounds="True"
+                                            Background="{DynamicResource SukiBackground}">
+                                        <Image asyncImageLoader:ImageLoader.Source="{Binding Avatar}"
+                                               Stretch="UniformToFill" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                Spacing="2">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontWeight="DemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding UserId}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource SukiLowText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- 状态信息 -->
+            <TextBlock Text="{Binding StatusMessage}"
+                       FontSize="12"
+                       Foreground="{DynamicResource SukiLiquid2}"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

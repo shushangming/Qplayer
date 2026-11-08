@@ -1,0 +1,80 @@
+using System.Collections.ObjectModel;
+using ZLinq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using KugouAvaloniaPlayer.Services;
+
+namespace KugouAvaloniaPlayer.ViewModels;
+
+public partial class EqBandViewModel(EqSettingsViewModel owner) : ObservableObject
+{
+    [ObservableProperty]
+    public partial float Value { get; set; }
+    public string Frequency { get; init; } = "";
+    public int Index { get; init; }
+
+    // 当值改变时通知父级更新
+    partial void OnValueChanged(float value)
+    {
+        owner.OnBandChanged();
+    }
+}
+
+public partial class EqSettingsViewModel : ObservableObject
+{
+    private static readonly string[] FreqLabels =
+        ["32Hz", "63Hz", "125Hz", "250Hz", "500Hz", "1K", "2K", "4K", "8K", "16K"];
+
+    private readonly PlayerViewModel _player;
+    private bool _isInitializing;
+
+    public EqSettingsViewModel(PlayerViewModel player)
+    {
+        _player = player;
+        var savedGains = SettingsManager.Settings.CustomEqGains;
+
+        _isInitializing = true;
+        for (var i = 0; i < 10; i++)
+            Bands.Add(new EqBandViewModel(this)
+            {
+                Index = i,
+                Frequency = FreqLabels[i],
+                Value = i < savedGains.Length ? savedGains[i] : 0
+            });
+        _isInitializing = false;
+    }
+
+    public ObservableCollection<EqBandViewModel> Bands { get; } = new();
+
+    public void ReloadFromSettings()
+    {
+        var savedGains = SettingsManager.Settings.CustomEqGains;
+        _isInitializing = true;
+        for (var i = 0; i < Bands.Count; i++)
+            Bands[i].Value = i < savedGains.Length ? savedGains[i] : 0;
+        _isInitializing = false;
+    }
+
+    public void OnBandChanged()
+    {
+        if (_isInitializing) return;
+
+        var gains = Bands.AsValueEnumerable().Select(b => b.Value).ToArray();
+        // 更新到设置中
+        SettingsManager.Settings.CustomEqGains = gains;
+        SettingsManager.Settings.EQPreset = "自定义";
+        SettingsManager.Save();
+
+        // 实时应用到播放器
+        _player.ApplyCustomEQ(gains);
+    }
+
+    [RelayCommand]
+    private void Reset()
+    {
+        _isInitializing = true;
+        foreach (var band in Bands) band.Value = 0;
+        _isInitializing = false;
+        OnBandChanged();
+    }
+}

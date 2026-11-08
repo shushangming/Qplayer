@@ -1,0 +1,233 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:models="using:KuGou.Net.Abstractions.Models"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:localControls="using:KugouAvaloniaPlayer.Controls"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:models1="clr-namespace:KugouAvaloniaPlayer.Models"
+             x:Class="KugouAvaloniaPlayer.Views.SearchView"
+             x:Name="SearchRoot"
+             x:DataType="vm:SearchViewModel">
+
+    <suki:GlassCard Margin="15" Padding="25">
+        <Grid RowDefinitions="Auto,*">
+            <Grid Grid.Row="0"
+                  Margin="0,0,0,20"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="10">
+                <TextBox Grid.Column="0"
+                         Text="{Binding SearchKeyword}"
+                         PlaceholderText="输入歌曲、歌手、歌单或专辑..."
+                         CornerRadius="8"
+                         Height="42"
+                         FontSize="15"
+                         VerticalContentAlignment="Center"
+                         behaviors:InteractionBehaviors.EnterKeyCommand="{Binding SearchCommand}">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+                    </TextBox.KeyBindings>
+                    <TextBox.InnerRightContent>
+                        <Button Classes="Basic"
+                                Command="{Binding SearchCommand}"
+                                IsEnabled="{Binding IsSearching, Converter={x:Static BoolConverters.Not}}"
+                                Padding="12,0"
+                                Cursor="Hand">
+                            <PathIcon Data="{x:Static suki:Icons.Search}"
+                                      Foreground="{DynamicResource SukiPrimaryColor}" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+
+                <Button Grid.Column="1"
+                        Classes="Basic"
+                        Command="{Binding ClearSearchCommand}"
+                        Padding="16,0"
+                        Cursor="Hand"
+                        ToolTip.Tip="返回上一页并清空本次搜索">
+                    <TextBlock Text="返回"
+                               FontSize="15"
+                               Foreground="{DynamicResource SukiLowText}" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  RowDefinitions="Auto,*">
+                <StackPanel Grid.Row="0"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Margin="0,0,0,15"
+                            IsVisible="{Binding HasSearched}">
+                    <RadioButton Content="单曲"
+                                 Classes="Segmented"
+                                 IsChecked="{Binding CurrentSearchType, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models1:SearchType.Song}}"
+                                 Command="{Binding SwitchSearchTypeCommand}"
+                                 CommandParameter="Song" />
+                    <RadioButton Content="歌单"
+                                 Classes="Segmented"
+                                 IsChecked="{Binding CurrentSearchType, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models1:SearchType.Playlist}}"
+                                 Command="{Binding SwitchSearchTypeCommand}"
+                                 CommandParameter="Playlist" />
+                    <RadioButton Content="专辑"
+                                 Classes="Segmented"
+                                 IsChecked="{Binding CurrentSearchType, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models1:SearchType.Album}}"
+                                 Command="{Binding SwitchSearchTypeCommand}"
+                                 CommandParameter="Album" />
+                    <RadioButton Content="歌手"
+                                 Classes="Segmented"
+                                 IsChecked="{Binding CurrentSearchType, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models1:SearchType.Singer}}"
+                                 Command="{Binding SwitchSearchTypeCommand}"
+                                 CommandParameter="Singer" />
+                </StackPanel>
+
+                <Grid Grid.Row="1">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="10"
+                                IsVisible="{Binding IsSearching}">
+                        <suki:Loading Width="24" Height="24" />
+                        <TextBlock Text="正在检索中..."
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SukiLowText}" />
+                    </StackPanel>
+
+                    <ListBox Classes="SongList"
+                             ItemsSource="{Binding Songs}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Padding="0,0,0,50"
+                             Background="Transparent">
+                        <ListBox.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="HasSearched" />
+                                <Binding Path="!IsSearching" />
+                                <Binding Path="CurrentSearchType"
+                                         Converter="{x:Static ObjectConverters.Equal}"
+                                         ConverterParameter="{x:Static models1:SearchType.Song}" />
+                                <Binding Path="!IsShowingDetail" />
+                            </MultiBinding>
+                        </ListBox.IsVisible>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:SongItem">
+                                <localControls:SongListItemControl
+                                    PlayCommand="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).PlaySongCommand}"
+                                    AddToNextCommand="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).AddSongToNextCommand}"
+                                    ShowPlaylistDialogCommand="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).ShowSongPlaylistDialogCommand}"
+                                    ViewSingerCommand="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).ViewSongSingerCommand}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <ScrollViewer Padding="0,0,0,-50">
+                        <ScrollViewer.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="HasSearched" />
+                                <Binding Path="!IsSearching" />
+                                <Binding Path="CurrentSearchType"
+                                         Converter="{x:Static ObjectConverters.Equal}"
+                                         ConverterParameter="{x:Static models1:SearchType.Playlist}" />
+                                <Binding Path="!IsShowingDetail" />
+                            </MultiBinding>
+                        </ScrollViewer.IsVisible>
+                        <ItemsRepeater ItemsSource="{Binding Playlists}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="184"
+                                                   MinItemHeight="236"
+                                                   MinColumnSpacing="15"
+                                                   MinRowSpacing="15" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate DataType="models:SearchPlaylistItem">
+                                    <localControls:MediaCard Cover="{Binding Cover}"
+                                                             Title="{Binding Name}"
+                                                             Subtitle="{Binding SongCount, StringFormat='{}{0} 首'}"
+                                                             Command="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).OpenPlaylistCommand}"
+                                                             CommandParameter="{Binding .}" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+
+                    <ScrollViewer Padding="0,0,0,-50">
+                        <ScrollViewer.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="HasSearched" />
+                                <Binding Path="!IsSearching" />
+                                <Binding Path="CurrentSearchType"
+                                         Converter="{x:Static ObjectConverters.Equal}"
+                                         ConverterParameter="{x:Static models1:SearchType.Album}" />
+                                <Binding Path="!IsShowingDetail" />
+                            </MultiBinding>
+                        </ScrollViewer.IsVisible>
+                        <ItemsRepeater ItemsSource="{Binding Albums}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="184"
+                                                   MinItemHeight="236"
+                                                   MinColumnSpacing="15"
+                                                   MinRowSpacing="15" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate DataType="models:SearchAlbumItem">
+                                    <localControls:MediaCard Cover="{Binding Cover}"
+                                                             Title="{Binding Name}"
+                                                             Subtitle="{Binding SongCount, StringFormat='{}{0} 首'}"
+                                                             Command="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).OpenAlbumCommand}"
+                                                             CommandParameter="{Binding .}" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+
+                    <ScrollViewer Padding="0,0,0,-50">
+                        <ScrollViewer.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="HasSearched" />
+                                <Binding Path="!IsSearching" />
+                                <Binding Path="CurrentSearchType"
+                                         Converter="{x:Static ObjectConverters.Equal}"
+                                         ConverterParameter="{x:Static models1:SearchType.Singer}" />
+                                <Binding Path="!IsShowingDetail" />
+                            </MultiBinding>
+                        </ScrollViewer.IsVisible>
+                        <ItemsRepeater ItemsSource="{Binding Singers}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="184"
+                                                   MinItemHeight="236"
+                                                   MinColumnSpacing="15"
+                                                   MinRowSpacing="15" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate DataType="models:SearchAuthorItem">
+                                    <localControls:MediaCard Cover="{Binding Cover}"
+                                                             Title="{Binding Name}"
+                                                             Subtitle="{Binding AudioCount, StringFormat='{}{0} 首歌曲'}"
+                                                             Command="{Binding #SearchRoot.((vm:SearchViewModel)DataContext).OpenSingerCommand}"
+                                                             CommandParameter="{Binding .}" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+
+                    <localControls:SongCollectionDetailView
+                        PlaybackCommands="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).Player}"
+                        SongInteractions="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).SongInteractions}"
+                        IsVisible="{Binding IsShowingDetail}"
+                        Cover="{Binding DetailCover}"
+                        Title="{Binding DetailTitle}"
+                        Subtitle="{Binding DetailSubTitle}"
+                        Songs="{Binding DetailSongs}"
+                        LoadMoreCommand="{Binding LoadMoreDetailsCommand}"
+                        BackCommand="{Binding GoBackCommand}"
+                        IsLoadingMore="{Binding IsLoadingMoreDetails}"
+                        LoadingMoreText="加载更多..."
+                        ListPadding="0,0,0,50"
+                        TitleFontSize="24"
+                        ShowAddLoadedSongsToQueueButton="{Binding CanCollectDetail}"
+                        HeroActionCommand="{Binding CollectPlaylistCommand}"
+                        HeroActionIconData="{x:Static suki:Icons.Star}"
+                        HeroActionIsVisible="{Binding CanCollectDetail}" />
+                </Grid>
+            </Grid>
+        </Grid>
+    </suki:GlassCard>
+</UserControl>

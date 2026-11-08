@@ -1,0 +1,122 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:localControls="using:KugouAvaloniaPlayer.Controls"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             x:Class="KugouAvaloniaPlayer.Views.SingerView"
+             x:Name="SingerRoot"
+             x:DataType="vm:SingerViewModel">
+    <Grid Margin="15">
+        <localControls:SongCollectionDetailView
+            PlaybackCommands="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).Player}"
+            SongInteractions="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).SongInteractions}"
+            IsVisible="{Binding IsSongListVisible}"
+            Cover="{Binding SingerAvatar}"
+            Title="{Binding SingerName}"
+            Songs="{Binding Songs}"
+            LoadMoreCommand="{Binding LoadMoreCommand}"
+            BackCommand="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).NavigateBackCommand}"
+            IsLoading="{Binding IsLoading}"
+            IsLoadingMore="{Binding IsLoadingMore}"
+            LoadingText="正在加载..."
+            LoadingMoreText="正在加载更多..."
+            ListPadding="0,0,0,50"
+            TitleFontSize="24"
+            HeroDropdownItems="{Binding SortOptions}"
+            HeroDropdownSelectedItem="{Binding CurrentSortText, Mode=TwoWay}"
+             />
+
+        <Grid IsVisible="{Binding IsAlbumBrowserVisible}"
+              RowDefinitions="188,*">
+            <localControls:SongCollectionDetailView
+                PlaybackCommands="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).Player}"
+                SongInteractions="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).SongInteractions}"
+                Grid.RowSpan="2"
+                Cover="{Binding SingerAvatar}"
+                Title="{Binding SingerName}"
+                Songs="{Binding AlbumSongs}"
+                BackCommand="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).NavigateBackCommand}"
+                LoadingText="正在加载专辑..."
+                ListPadding="0,0,0,50"
+                TitleFontSize="24"
+                HeroDropdownItems="{Binding SortOptions}"
+                HeroDropdownSelectedItem="{Binding CurrentSortText, Mode=TwoWay}"
+                ShowSongList="False"
+                ShowPlayAllButton="False" />
+
+            <suki:GlassCard Grid.Row="1"
+                            Classes="CollectionPanel"
+                            Margin="0,15,0,0"
+                            Padding="22,16,22,0"
+                            CornerRadius="18">
+                <Grid>
+                    <ScrollViewer Padding="0,0,0,50"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  behaviors:InteractionBehaviors.ScrollNearBottomCommand="{Binding LoadMoreAlbumsCommand}">
+                        <ItemsRepeater ItemsSource="{Binding Albums}">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="184"
+                                                   MinItemHeight="236"
+                                                   MinColumnSpacing="15"
+                                                   MinRowSpacing="15" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate DataType="vm:SingerAlbumItem">
+                                    <localControls:MediaCard Cover="{Binding Cover}"
+                                                             Title="{Binding AlbumName}"
+                                                             Subtitle="{Binding Subtitle}"
+                                                             Command="{Binding #SingerRoot.((vm:SingerViewModel)DataContext).OpenAlbumCommand}"
+                                                             CommandParameter="{Binding .}" />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </ScrollViewer>
+
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                IsVisible="{Binding IsLoadingAlbums}"
+                                Spacing="10">
+                        <suki:Loading Width="40" Height="40" />
+                        <TextBlock Text="正在加载专辑..."
+                                   Foreground="{DynamicResource SukiLiquid2}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Margin="10"
+                                Spacing="10"
+                                IsVisible="{Binding IsLoadingMoreAlbums}">
+                        <suki:Loading Width="20" Height="20" />
+                        <TextBlock Text="正在加载更多专辑..."
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SukiLiquid2}" />
+                    </StackPanel>
+                </Grid>
+            </suki:GlassCard>
+        </Grid>
+
+        <localControls:SongCollectionDetailView
+            PlaybackCommands="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).Player}"
+            SongInteractions="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).SongInteractions}"
+            IsVisible="{Binding IsAlbumDetailVisible}"
+            Cover="{Binding AlbumDetailCover}"
+            Title="{Binding AlbumDetailTitle}"
+            Subtitle="{Binding AlbumDetailSubTitle}"
+            Songs="{Binding AlbumSongs}"
+            LoadMoreCommand="{Binding LoadMoreAlbumSongsCommand}"
+            BackCommand="{Binding BackToAlbumsCommand}"
+            IsLoading="{Binding IsLoadingAlbumSongs}"
+            IsLoadingMore="{Binding IsLoadingMoreAlbumSongs}"
+            LoadingText="正在加载专辑..."
+            LoadingMoreText="正在加载更多..."
+            ListPadding="0,0,0,50"
+            TitleFontSize="24"
+            ShowAddLoadedSongsToQueueButton="True"
+            HeroActionCommand="{Binding CollectAlbumCommand}"
+            HeroActionIconData="{x:Static suki:Icons.Star}"
+            HeroActionIsVisible="True" />
+    </Grid>
+</UserControl>

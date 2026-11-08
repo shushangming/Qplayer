@@ -1,0 +1,243 @@
+name: Native Mobile SDK
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/native-mobile.yml'
+      - 'Directory.Packages.props'
+      - 'src/Libraries/KuGou.Net/**'
+      - 'src/Native/KuGou.Net.Native/**'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/native-mobile.yml'
+      - 'Directory.Packages.props'
+      - 'src/Libraries/KuGou.Net/**'
+      - 'src/Native/KuGou.Net.Native/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  NATIVE_PROJECT: src/Native/KuGou.Net.Native/KuGou.Net.Native.csproj
+
+jobs:
+  android-arm64:
+    name: Android arm64-v8a
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: preview
+
+      - name: Select Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ndk_root="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-}}}"
+          if [[ -z "$ndk_root" || ! -d "$ndk_root" ]]; then
+            echo "Android NDK was not found on the runner." >&2
+            exit 1
+          fi
+          echo "ANDROID_NDK_ROOT=$ndk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ndk_root" >> "$GITHUB_ENV"
+
+          android_clang="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          if [[ ! -x "$android_clang" ]]; then
+            echo "Android arm64 clang was not found at $android_clang." >&2
+            exit 1
+          fi
+          android_objcopy="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objcopy"
+          if [[ ! -x "$android_objcopy" ]]; then
+            echo "Android llvm-objcopy was not found at $android_objcopy." >&2
+            exit 1
+          fi
+          echo "ANDROID_ARM64_CLANG=$android_clang" >> "$GITHUB_ENV"
+          echo "ANDROID_LLVM_OBJCOPY=$android_objcopy" >> "$GITHUB_ENV"
+          echo "ANDROID_LLVM_AR=$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> "$GITHUB_ENV"
+
+      - name: Build Android JNI bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          bootstrap_dir="$GITHUB_WORKSPACE/artifacts/android/bootstrap"
+          mkdir -p "$bootstrap_dir"
+          "$ANDROID_ARM64_CLANG" \
+            -fPIC \
+            -c src/Native/KuGou.Net.Native/android_jni_bootstrap.c \
+            -o "$bootstrap_dir/android_jni_bootstrap.o"
+          "$ANDROID_LLVM_AR" rcs \
+            "$bootstrap_dir/libKuGou.Android.JniBootstrap.a" \
+            "$bootstrap_dir/android_jni_bootstrap.o"
+          echo "ANDROID_JNI_BOOTSTRAP=$bootstrap_dir/libKuGou.Android.JniBootstrap.a" >> "$GITHUB_ENV"
+
+      - name: Publish Android NativeAOT library
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish "$NATIVE_PROJECT" \
+            -c Release \
+            -f net10.0 \
+            -r android-arm64 \
+            --self-contained true \
+            -p:PublishAot=true \
+            -p:PublishAotUsingRuntimePack=true \
+            -p:CppCompilerAndLinker="$ANDROID_ARM64_CLANG" \
+            -p:ObjCopyName="$ANDROID_LLVM_OBJCOPY" \
+            -p:AndroidJniBootstrapLibrary="$ANDROID_JNI_BOOTSTRAP" \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -o artifacts/android/publish
+
+      - name: Stage and verify Android library
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_library="$(find artifacts/android/publish -maxdepth 1 -type f -name '*.so' -print -quit)"
+          if [[ -z "$source_library" ]]; then
+            echo "NativeAOT did not produce an Android shared library." >&2
+            exit 1
+          fi
+
+          destination='artifacts/android/jniLibs/arm64-v8a/libKuGou.Net.Native.so'
+          mkdir -p "$(dirname "$destination")"
+          cp "$source_library" "$destination"
+
+          nm_tool="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          symbols_file='artifacts/android/native-symbols.txt'
+          "$nm_tool" -D --defined-only "$destination" > "$symbols_file"
+          for symbol in JNI_OnLoad KgRequestStart KgRequestPoll KgRequestCancel KgFreeMemory; do
+            grep -Fq "$symbol" "$symbols_file"
+          done
+          grep -E 'KgRequest(Start|Poll|Cancel)|KgFreeMemory' "$symbols_file"
+
+          file "$destination"
+          ls -lh "$destination"
+
+          crypto_jar="$(find "$HOME/.nuget/packages/microsoft.netcore.app.runtime.nativeaot.android-arm64" \
+            -type f -path '*/runtimes/android-arm64/native/libSystem.Security.Cryptography.Native.Android.jar' \
+            -print | sort -V | tail -n 1)"
+          if [[ -z "$crypto_jar" ]]; then
+            echo "The Android crypto JNI helper JAR was not found in the NativeAOT runtime pack." >&2
+            exit 1
+          fi
+          java_destination='artifacts/android/java/libSystem.Security.Cryptography.Native.Android.jar'
+          mkdir -p "$(dirname "$java_destination")"
+          cp "$crypto_jar" "$java_destination"
+          jar tf "$java_destination" | grep -Fq 'net/dot/android/crypto/DotnetProxyTrustManager.class'
+
+      - name: Upload Android jniLibs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kugou-native-android-arm64
+          path: artifacts/android/jniLibs
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Android crypto JNI helper
+        uses: actions/upload-artifact@v4
+        with:
+          name: kugou-native-android-java
+          path: artifacts/android/java
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-xcframework:
+    name: iOS XCFramework
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: preview
+
+      - name: Publish iOS NativeAOT libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          for rid in ios-arm64 iossimulator-arm64 iossimulator-x64; do
+            dotnet publish "$NATIVE_PROJECT" \
+              -c Release \
+              -f net10.0 \
+              -r "$rid" \
+              --self-contained true \
+              -p:PublishAot=true \
+              -p:PublishAotUsingRuntimePack=true \
+              -p:DebugType=None \
+              -p:DebugSymbols=false \
+              -o "artifacts/ios/publish/$rid"
+          done
+
+      - name: Create XCFramework
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find_dylib() {
+            find "$1" -maxdepth 1 -type f -name '*.dylib' -print -quit
+          }
+
+          device_library="$(find_dylib artifacts/ios/publish/ios-arm64)"
+          simulator_arm64_library="$(find_dylib artifacts/ios/publish/iossimulator-arm64)"
+          simulator_x64_library="$(find_dylib artifacts/ios/publish/iossimulator-x64)"
+          for library in "$device_library" "$simulator_arm64_library" "$simulator_x64_library"; do
+            if [[ -z "$library" ]]; then
+              echo "NativeAOT did not produce every required iOS library." >&2
+              exit 1
+            fi
+          done
+
+          mkdir -p artifacts/ios/staged/device artifacts/ios/staged/simulator
+          device_staged='artifacts/ios/staged/device/KuGou.Net.Native.dylib'
+          simulator_staged='artifacts/ios/staged/simulator/KuGou.Net.Native.dylib'
+          cp "$device_library" "$device_staged"
+          lipo -create "$simulator_arm64_library" "$simulator_x64_library" -output "$simulator_staged"
+          install_name_tool -id '@rpath/KuGou.Net.Native.dylib' "$device_staged"
+          install_name_tool -id '@rpath/KuGou.Net.Native.dylib' "$simulator_staged"
+
+          for symbol in KgRequestStart KgRequestPoll KgRequestCancel KgFreeMemory; do
+            nm -gU "$device_staged" | grep -q "_$symbol$"
+            nm -gU "$simulator_staged" | grep -q "_$symbol$"
+          done
+
+          xcodebuild -create-xcframework \
+            -library "$device_staged" \
+            -headers src/Native/KuGou.Net.Native/include \
+            -library "$simulator_staged" \
+            -headers src/Native/KuGou.Net.Native/include \
+            -output artifacts/ios/KuGou.Net.Native.xcframework
+
+          lipo -info "$device_staged"
+          lipo -info "$simulator_staged"
+          find artifacts/ios/KuGou.Net.Native.xcframework -maxdepth 3 -type f -print
+
+      - name: Upload iOS XCFramework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kugou-native-ios-xcframework
+          path: artifacts/ios/KuGou.Net.Native.xcframework
+          if-no-files-found: error
+          retention-days: 14

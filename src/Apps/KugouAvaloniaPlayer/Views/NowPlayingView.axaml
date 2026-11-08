@@ -1,0 +1,227 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:controls="using:KugouAvaloniaPlayer.Controls"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             x:Class="KugouAvaloniaPlayer.Views.NowPlayingView"
+             x:DataType="vm:NowPlayingViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Grid#Root">
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.32" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Grid#Root.open">
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Grid#NowPlayingForeground">
+            <Setter Property="RenderTransform" Value="translateY(72px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.48" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Grid#NowPlayingForeground.open">
+            <Setter Property="RenderTransform" Value="translateY(0)" />
+        </Style>
+
+        <Style Selector="Image.NowPlayingBackgroundLayer">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.7" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid Name="Root"
+          Classes.open="{Binding IsOpen}"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          ClipToBounds="True">
+        <Panel>
+            <Image behaviors:LocalArtworkImageBehavior.Source="{Binding Player.PreparedNextCover}"
+                                 behaviors:LocalArtworkImageBehavior.DecodePixelWidth="320"
+                                 behaviors:LocalArtworkImageBehavior.UseDefaultFallback="False"
+                                 behaviors:LocalArtworkImageBehavior.IsEnabled="{Binding IsOpen}"
+                                 behaviors:NowPlayingRemoteImageBehavior.Source="{Binding Player.PreparedNextCover, Converter={StaticResource RemoteImageSourceConverter}}"
+                                 behaviors:NowPlayingRemoteImageBehavior.IsEnabled="{Binding IsOpen}"
+                                 Width="1"
+                                 Height="1"
+                                 Opacity="0"
+                                 IsHitTestVisible="False"
+                                 HorizontalAlignment="Left"
+                                 VerticalAlignment="Top" />
+            <Border Background="#FF000000" />
+            <Panel x:Name="SharedBackgroundFrame"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top"
+                   ClipToBounds="False"
+                   IsHitTestVisible="False">
+                <Image x:Name="BackgroundSourceImage"
+                       behaviors:LocalArtworkImageBehavior.Source="{Binding NowPlayingBackgroundImageSource}"
+                       behaviors:LocalArtworkImageBehavior.DecodePixelWidth="960"
+                       behaviors:LocalArtworkImageBehavior.DecodeInterpolationMode="HighQuality"
+                       behaviors:LocalArtworkImageBehavior.IsEnabled="{Binding IsOpen}"
+                       behaviors:NowPlayingRemoteImageBehavior.Source="{Binding NowPlayingBackgroundImageSource, Converter={StaticResource RemoteImageSourceConverter}}"
+                       behaviors:NowPlayingRemoteImageBehavior.IsEnabled="{Binding IsOpen}"
+                       Width="1"
+                       Height="1"
+                       Opacity="0"
+                       IsHitTestVisible="False"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top" />
+                <Image x:Name="CachedBackgroundImage"
+                       RenderOptions.BitmapInterpolationMode="HighQuality"
+                       Stretch="UniformToFill"
+                       Margin="-96"
+                       Opacity="{Binding BackgroundImageOpacity}"
+                       Classes="NowPlayingBackgroundLayer" />
+                <Image behaviors:NowPlayingRemoteImageBehavior.Source="{Binding PortraitBackgroundA, Converter={StaticResource RemoteImageSourceConverter}}"
+                       behaviors:NowPlayingRemoteImageBehavior.IsEnabled="{Binding IsOpen}"
+                       Stretch="UniformToFill"
+                       Margin="-96"
+                       Opacity="{Binding PortraitLayerAOpacity}"
+                       Classes="NowPlayingBackgroundLayer" />
+                <Image behaviors:NowPlayingRemoteImageBehavior.Source="{Binding PortraitBackgroundB, Converter={StaticResource RemoteImageSourceConverter}}"
+                       behaviors:NowPlayingRemoteImageBehavior.IsEnabled="{Binding IsOpen}"
+                       Stretch="UniformToFill"
+                       Margin="-96"
+                       Opacity="{Binding PortraitLayerBOpacity}"
+                       Classes="NowPlayingBackgroundLayer" />
+            </Panel>
+
+            <Border Background="#33000000" />
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#24000000" Offset="0" />
+                        <GradientStop Color="#64000000" Offset="0.48" />
+                        <GradientStop Color="#90000000" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+        </Panel>
+
+        <Image x:Name="FoliaCoverImage"
+               Width="1" Height="1" Opacity="0" IsHitTestVisible="False"
+               behaviors:LocalArtworkImageBehavior.Source="{Binding Player.DisplayedPlayingSong.Cover}"
+               behaviors:LocalArtworkImageBehavior.DecodePixelWidth="50"
+               behaviors:LocalArtworkImageBehavior.UseDefaultFallback="False"
+               behaviors:LocalArtworkImageBehavior.IsEnabled="{Binding IsFoliaLatentMaterialActive}"
+               behaviors:NowPlayingRemoteImageBehavior.Source="{Binding Player.DisplayedPlayingSong.Cover, Converter={StaticResource RemoteImageSourceConverter}}"
+               behaviors:NowPlayingRemoteImageBehavior.IsEnabled="{Binding IsFoliaLatentMaterialActive}" />
+        <controls:LatentBackgroundControl x:Name="FoliaBackground"
+               Player="{Binding Player}"
+               Cover="{Binding #FoliaCoverImage.Source}"
+               IsSonnet="{Binding IsSonnetTheme}"
+               IsActive="{Binding IsFoliaLatentMaterialActive}"
+               IsVisible="{Binding IsFoliaLatentMaterialActive}" />
+        <Grid x:Name="ThemeContentHost" />
+        <TextBlock Text="{Binding #FoliaBackground.LastError}"
+                   Foreground="#FFFFD4C4" Background="#E0201010"
+                   MaxWidth="720" TextWrapping="Wrap" Margin="24,80,24,24"
+                   HorizontalAlignment="Center" VerticalAlignment="Top"
+                   IsVisible="{Binding IsFoliaLatentMaterialActive}" IsHitTestVisible="False" />
+
+        <Border Height="72"
+                VerticalAlignment="Top"
+                Background="Transparent"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+        <Grid x:Name="NowPlayingForeground"
+              Classes.open="{Binding IsOpen}"
+              RowDefinitions="Auto, *"
+              Margin="40">
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="Auto,*"
+                  Margin="0,10,0,0">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="12"
+                            HorizontalAlignment="Left">
+                    <Button Cursor="Hand"
+                            Command="{Binding CloseCommand}"
+                            Classes="Basic">
+                        <Border Background="#30FFFFFF" CornerRadius="20" Padding="15,8">
+                            <PathIcon Data="{x:Static suki:Icons.ChevronDown}" Foreground="White" Width="15" Height="15" />
+                        </Border>
+                    </Button>
+
+                    <Button Cursor="Hand"
+                            Command="{Binding CycleThemePresetCommand}"
+                            Classes="Basic">
+                        <Border Background="#24101822"
+                                BorderBrush="#35E5B96B"
+                                BorderThickness="1"
+                                CornerRadius="20"
+                                Padding="13,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Svg Path="/Assets/gear-svgrepo-com.svg"
+                                     Css="path { stroke: #E5B96B; fill: none; }"
+                                     Width="14"
+                                     Height="14"
+                                     Opacity="0.92" />
+                                <TextBlock Text="{Binding CurrentThemePresetName}"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="White"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Margin="0,-100,-25,0"
+                            HorizontalAlignment="Right">
+                    <Button Classes="Basic"
+                            Cursor="Hand"
+                            Command="{Binding RequestWindowToggleFullScreenCommand}">
+                        <PathIcon Data="{x:Static suki:Icons.WindowFullScreen}"
+                                  Foreground="White"
+                                  Width="13"
+                                  Height="13" />
+                    </Button>
+                    <Button Classes="Basic"
+                            Cursor="Hand"
+                            Command="{Binding RequestWindowMinimizeCommand}">
+                        <PathIcon Data="{x:Static suki:Icons.WindowMinimize}"
+                                  Foreground="White"
+                                  Width="13"
+                                  Height="13"
+                                  Margin="0,0,0,4" />
+                    </Button>
+                    <Button Classes="Basic"
+                            Cursor="Hand"
+                            Command="{Binding RequestWindowToggleMaximizeCommand}">
+                        <PathIcon Data="{x:Static suki:Icons.WindowMaximize}"
+                                  Foreground="White"
+                                  Width="13"
+                                  Height="13" />
+                    </Button>
+                    <Button Classes="Basic"
+                            Cursor="Hand"
+                            Command="{Binding RequestWindowCloseCommand}">
+                        <PathIcon Data="{x:Static suki:Icons.WindowClose}"
+                                  Foreground="White"
+                                  Width="13"
+                                  Height="13" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+
+        </Grid>
+    </Grid>
+</UserControl>

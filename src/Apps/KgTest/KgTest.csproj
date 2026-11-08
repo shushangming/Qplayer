@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+        <Features Condition="'$(TargetFramework)' == 'net11.0'">$(Features);runtime-async=on</Features>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!--<PublishAot>true</PublishAot>-->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Spectre.Console"/>
+        <PackageReference Include="System.Security.Cryptography.ProtectedData"/>
+        <ProjectReference Include="..\..\Libraries\SimpleAudio\SimpleAudio.csproj"/>
+        <ProjectReference Include="..\..\Libraries\KuGou.Net\KuGou.Net.csproj"/>
+    </ItemGroup>
+
+
+</Project>

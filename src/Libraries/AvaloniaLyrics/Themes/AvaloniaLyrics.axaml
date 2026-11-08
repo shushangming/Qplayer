@@ -1,0 +1,80 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lyrics="clr-namespace:AvaloniaLyrics;assembly=AvaloniaLyrics">
+
+    <Style Selector="lyrics|LyricView">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="Preset" Value="Default" />
+        <Setter Property="ActiveAnchorRatio" Value="0.5" />
+        <Setter Property="EnableAnimation" Value="False" />
+        <Setter Property="EnableStagger" Value="False" />
+        <Setter Property="EnableScale" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ClipToBounds="True">
+                        <ItemsPresenter>
+                            <ItemsPresenter.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Canvas />
+                                </ItemsPanelTemplate>
+                            </ItemsPresenter.ItemsPanel>
+                        </ItemsPresenter>
+
+                        <Canvas Name="PART_SeekIndicatorLayer"
+                                IsVisible="False"
+                                IsHitTestVisible="True">
+                            <Border Name="PART_SeekIndicatorLine"
+                                    Width="46"
+                                    Height="1"
+                                    Background="#CCFFFFFF"
+                                    Opacity="0.86"
+                                    IsVisible="False" />
+
+                            <Border Name="PART_SeekIndicatorPanel"
+                                    Width="118"
+                                    Height="34"
+                                    CornerRadius="17"
+                                    Background="#D91A1A1A"
+                                    BorderBrush="#33FFFFFF"
+                                    BorderThickness="1"
+                                    Padding="10,0"
+                                    IsVisible="False">
+                                <Grid ColumnDefinitions="*,28">
+                                    <TextBlock Name="PART_SeekIndicatorTime"
+                                               VerticalAlignment="Center"
+                                               Foreground="White"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Text="00:00" />
+
+                                    <Button Name="PART_SeekIndicatorButton"
+                                            Grid.Column="1"
+                                            Width="26"
+                                            Height="26"
+                                            Padding="0"
+                                            CornerRadius="13"
+                                            Background="#26FFFFFF"
+                                            BorderThickness="0"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Cursor="Hand"
+                                            ToolTip.Tip="跳转到此行">
+                                        <PathIcon Data="M8,5 L8,19 L19,12 Z"
+                                                  Width="13"
+                                                  Height="13"
+                                                  Foreground="White" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </Canvas>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

@@ -1,0 +1,434 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             xmlns:localControls="using:KugouAvaloniaPlayer.Controls"
+             x:Class="KugouAvaloniaPlayer.Controls.SongCollectionDetailView"
+             x:Name="Root">
+
+    <!-- 批量模式选中态：蓝色半透明玻璃感，与侧栏按钮选中样式风格一致 -->
+    <UserControl.Styles>
+        <Style Selector="Button.active">
+            <Setter Property="Background" Value="#663B82F6" />
+            <Setter Property="BorderBrush" Value="#9960A5FA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="CollectionHeroOverlayTop">#100B1D42</Color>
+                    <Color x:Key="CollectionHeroOverlayMid">#180B1D42</Color>
+                    <Color x:Key="CollectionHeroOverlayBottom">#300B1D42</Color>
+                    <Color x:Key="CollectionHeroFadeStart">#00FFFFFF</Color>
+                    <Color x:Key="CollectionHeroFadeMid">#28FFFFFF</Color>
+                    <Color x:Key="CollectionHeroFadeEnd">#F6FFFFFF</Color>
+                    <SolidColorBrush x:Key="CollectionTableHeadingBrush" Color="#6D78A0" />
+                    <SolidColorBrush x:Key="CollectionCoverBorderBrush" Color="#70FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionCoverBackgroundBrush" Color="#28FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroIconButtonBrush" Color="#2AFFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroIconButtonHoverBrush" Color="#40FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroButtonBorderBrush" Color="#58FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroActionBrush" Color="#24FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroActionHoverBrush" Color="#38FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroActionBorderBrush" Color="#50FFFFFF" />
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="CollectionHeroOverlayTop">#24101B35</Color>
+                    <Color x:Key="CollectionHeroOverlayMid">#34101B35</Color>
+                    <Color x:Key="CollectionHeroOverlayBottom">#68101B35</Color>
+                    <Color x:Key="CollectionHeroFadeStart">#0012192A</Color>
+                    <Color x:Key="CollectionHeroFadeMid">#A012192A</Color>
+                    <Color x:Key="CollectionHeroFadeEnd">#FF12192A</Color>
+                    <SolidColorBrush x:Key="CollectionTableHeadingBrush" Color="#9CA8C6" />
+                    <SolidColorBrush x:Key="CollectionCoverBorderBrush" Color="#66FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionCoverBackgroundBrush" Color="#242A3550" />
+                    <SolidColorBrush x:Key="CollectionHeroIconButtonBrush" Color="#30000000" />
+                    <SolidColorBrush x:Key="CollectionHeroIconButtonHoverBrush" Color="#4A000000" />
+                    <SolidColorBrush x:Key="CollectionHeroButtonBorderBrush" Color="#34FFFFFF" />
+                    <SolidColorBrush x:Key="CollectionHeroActionBrush" Color="#2A000000" />
+                    <SolidColorBrush x:Key="CollectionHeroActionHoverBrush" Color="#44000000" />
+                    <SolidColorBrush x:Key="CollectionHeroActionBorderBrush" Color="#30FFFFFF" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Button.HeroIconButton">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="21" />
+            <Setter Property="Background" Value="{DynamicResource CollectionHeroIconButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CollectionHeroButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.HeroIconButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CollectionHeroIconButtonHoverBrush}" />
+        </Style>
+        <Style Selector="Button.HeroPrimaryButton">
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Padding" Value="18,0" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.HeroPrimaryButton:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ComboBox.HeroDropdown">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="MinWidth" Value="126" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="CornerRadius" Value="19" />
+            <Setter Property="Background" Value="{DynamicResource CollectionHeroActionBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CollectionHeroActionBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="ComboBox.HeroDropdown:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CollectionHeroActionHoverBrush}" />
+        </Style>
+        <Style Selector="ComboBox.HeroDropdown TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        
+        <Style Selector="TextBlock.TableHeading">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource CollectionTableHeadingBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*"
+          Margin="{Binding #Root.HeaderMargin}">
+        <Grid Grid.Row="0"
+              Height="188"
+              ClipToBounds="False">
+            <Border CornerRadius="22,22,0,0"
+                    ClipToBounds="True"
+                    Background="{DynamicResource SukiPrimaryColorLow}">
+                <Grid>
+                    <Image asyncImageLoader:ImageLoader.Source="{Binding #Root.CurrentHeroBackground}"
+                           behaviors:ImageRenderOptions.InterpolationSource="{Binding #Root.CurrentHeroBackground}"
+                           IsVisible="{DynamicResource KugouHeroBackgroundImageVisible}"
+                           Stretch="UniformToFill" />
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                <GradientStop Color="{DynamicResource CollectionHeroOverlayTop}" Offset="0" />
+                                <GradientStop Color="{DynamicResource CollectionHeroOverlayMid}" Offset="0.62" />
+                                <GradientStop Color="{DynamicResource CollectionHeroOverlayBottom}" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Border IsVisible="{DynamicResource KugouHeroBackgroundImageVisible}"
+                            VerticalAlignment="Bottom"
+                            Height="76">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                <GradientStop Color="{DynamicResource CollectionHeroFadeStart}" Offset="0" />
+                                <GradientStop Color="{DynamicResource CollectionHeroFadeMid}" Offset="0.56" />
+                                <GradientStop Color="{DynamicResource CollectionHeroFadeEnd}" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid ColumnDefinitions="Auto,*"
+                  Margin="28,20,28,18">
+                <Border Grid.Column="0"
+                        Width="164"
+                        Height="164"
+                        IsVisible="{Binding #Root.ShowCover}"
+                        CornerRadius="16"
+                        ClipToBounds="True"
+                        VerticalAlignment="Top"
+                        BorderBrush="{DynamicResource CollectionCoverBorderBrush}"
+                        BorderThickness="2"
+                        Background="{DynamicResource CollectionCoverBackgroundBrush}">
+                    <Image asyncImageLoader:ImageLoader.Source="{Binding #Root.Cover}"
+                           behaviors:ImageRenderOptions.InterpolationSource="{Binding #Root.Cover}"
+                           Width="164"
+                           Height="164"
+                           Stretch="UniformToFill"
+                           />
+                </Border>
+
+                <Grid Grid.Column="1"
+                      Margin="24,0,0,0">
+                    <StackPanel Margin="0,6,54,0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Spacing="10">
+                        <TextBlock Text="{Binding #Root.Title}"
+                                   FontSize="{Binding #Root.TitleFontSize}"
+                                   FontWeight="Bold"
+                                   Foreground="White"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="{Binding #Root.TitleMaxWidth}" />
+                        <TextBlock Text="{Binding #Root.Subtitle}"
+                                   IsVisible="{Binding #Root.HasSubtitle}"
+                                   FontSize="14"
+                                   Foreground="#DCE5FF"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="{Binding #Root.TitleMaxWidth}" />
+
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto"
+                                  ColumnSpacing="12"
+                                  HorizontalAlignment="Left"
+                                  MaxWidth="{Binding #Root.TitleMaxWidth}">
+                                <Button Classes="HeroPrimaryButton"
+                                        Command="{Binding #Root.PlayFirstSongCommand}"
+                                        IsVisible="{Binding #Root.ShowPlayAllButton}"
+                                        Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Svg Classes="ThemeSvgIcon" Path="/Assets/play-1003-svgrepo-com.svg" Width="16" Height="16" />
+                                        <TextBlock Text="播放全部" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Grid.Column="1"
+                                        Classes="Icon"
+                                        Command="{Binding #Root.HeroActionCommand}"
+                                        IsVisible="{Binding #Root.HasHeroAction}"
+                                        VerticalAlignment="Center"
+                                        Cursor="Hand"
+                                        ToolTip.Tip="{Binding #Root.HeroActionText}"
+                                        ToolTip.ServiceEnabled="{Binding #Root.HasHeroActionText}"
+                                        ToolTip.Placement="Top"
+                                        ToolTip.VerticalOffset="-2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Svg Classes="ThemeSvgIcon"
+                                             Path="{Binding #Root.HeroActionSvgPath}"
+                                             Width="16"
+                                             Height="16"
+                                             IsVisible="{Binding #Root.HasHeroActionSvgPath}" />
+                                        <PathIcon Data="{Binding #Root.HeroActionIconData}"
+                                                  Width="16"
+                                                  Height="16"
+                                                  IsVisible="{Binding #Root.HasHeroActionIconData}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Grid.Column="2"
+                                        Classes="Icon"
+                                        Classes.active="{Binding #Root.IsBatchSelectionMode}"
+                                        Command="{Binding #Root.OpenBatchActionsCommand}"
+                                        IsVisible="{Binding #Root.ShowAddLoadedSongsToQueueButton}"
+                                        Cursor="Hand"
+                                        ToolTip.Tip="批量操作"
+                                        ToolTip.Placement="Top"
+                                        ToolTip.VerticalOffset="-2">
+                                    <Svg Classes="ThemeSvgIcon" Path="/Assets/FormatList.svg" Width="16" Height="16" />
+                                </Button>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        IsVisible="{Binding #Root.HasHeroDropdown}">
+                                <TextBlock Text="{Binding #Root.HeroDropdownLabel}"
+                                           IsVisible="{Binding #Root.HasHeroDropdownLabel}"
+                                           Foreground="#DCE5FF"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                                <ComboBox Classes="HeroDropdown"
+                                          ItemsSource="{Binding #Root.HeroDropdownItems}"
+                                          SelectedItem="{Binding #Root.HeroDropdownSelectedItem, Mode=TwoWay}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Command="{Binding #Root.BackCommand}"
+                            Classes="Basic HeroIconButton"
+                            IsVisible="{Binding #Root.ShowBackButton}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Cursor="Hand"
+                            ToolTip.Tip="返回">
+                        <PathIcon Data="{x:Static suki:Icons.ChevronLeft}"
+                                  Foreground="White"
+                                  Width="22"
+                                  Height="22" />
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <suki:GlassCard Grid.Row="1"
+                        Classes="CollectionPanel"
+                        Margin="{Binding #Root.ListMargin}"
+                        Padding="22,16,22,0"
+                        CornerRadius="18"
+                        IsVisible="{Binding #Root.ShowSongList}">
+            <Grid RowDefinitions="Auto,Auto,*">
+                <TextBox Grid.Row="0"
+                         Width="280"
+                         Height="34"
+                         Margin="70,0,16,10"
+                         HorizontalAlignment="Right"
+                         VerticalContentAlignment="Center"
+                         CornerRadius="17"
+                         FontSize="12"
+                         IsVisible="{Binding #Root.EnableSongSearch}"
+                         PlaceholderText="搜索歌单内歌曲、歌手或专辑..."
+                         Text="{Binding #Root.SongSearchText, Mode=TwoWay}">
+                    <TextBox.InnerLeftContent>
+                        <PathIcon Data="{x:Static suki:Icons.Search}"
+                                  Width="12"
+                                  Height="12"
+                                  Foreground="{DynamicResource SukiLowText}" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
+
+                <Grid Grid.Row="1"
+                      ColumnDefinitions="*,150,80,150"
+                      Margin="70,0,16,8">
+                    <TextBlock Classes="TableHeading" Text="歌曲" />
+                    <TextBlock Grid.Column="1" Classes="TableHeading" Text="专辑" />
+                    <TextBlock Grid.Column="2" Classes="TableHeading" Text="时长" />
+                    <StackPanel Grid.Column="3"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                HorizontalAlignment="Right"
+                                Margin="0,-3.2,28,0">
+                        <TextBlock Classes="TableHeading"
+                                   Text="操作"
+                                   VerticalAlignment="Center" />
+                        <Button Classes="Basic"
+                                Width="26"
+                                Height="26"
+                                Padding="0"
+                                Cursor="Hand"
+                                Command="{Binding #Root.ScrollToPlayingSongCommand}"
+                                ToolTip.Tip="定位当前播放">
+                            <Svg Classes="ThemeSvgIcon"
+                                 Path="/Assets/TargetIcon.svg"
+                                 Width="22"
+                                 Height="22" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="2">
+                    <ListBox x:Name="SongList"
+                             Classes="SongList"
+                             Classes.batch="{Binding #Root.IsBatchSelectionMode}"
+                             ItemsSource="{Binding #Root.VisibleSongs}"
+                             behaviors:InteractionBehaviors.ScrollNearBottomCommand="{Binding #Root.LoadMoreCommand}"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Padding="{Binding #Root.ListPadding}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:SongItem">
+                                <localControls:SongListItemControl
+                                    PlayCommand="{Binding #Root.PlaySongCommand}"
+                                    AddToNextCommand="{Binding #Root.AddToNextCommand}"
+                                    ShowPlaylistDialogCommand="{Binding #Root.ShowPlaylistDialogCommand}"
+                                    ViewSingerCommand="{Binding #Root.ViewSingerCommand}"
+                                    RemoveFromPlaylistCommand="{Binding #Root.RemoveSongCommand}"
+                                    SetLocalCoverCommand="{Binding #Root.SetLocalSongCoverCommand}"
+                                    MatchLocalLyricsCommand="{Binding #Root.MatchLocalLyricsCommand}"
+                                    SearchLocalPlaylistsCommand="{Binding #Root.SearchLocalPlaylistsCommand}"
+                                    ShowDragHandle="{Binding #Root.EnableDragReorder}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                IsVisible="{Binding #Root.IsLoading}"
+                                Spacing="10">
+                        <suki:Loading Width="40" Height="40" />
+                        <TextBlock Text="{Binding #Root.LoadingText}"
+                                   Foreground="{DynamicResource SukiLiquid2}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Margin="10"
+                                Spacing="10"
+                                IsVisible="{Binding #Root.IsLoadingMore}">
+                        <suki:Loading Width="20" Height="20" />
+                        <TextBlock Text="{Binding #Root.LoadingMoreText}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SukiLiquid2}" />
+                    </StackPanel>
+
+                    <!-- 批量选择模式操作栏（点击「批量操作」按钮进入后显示） -->
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            Margin="0,6,0,0"
+                            CornerRadius="20"
+                            Background="{DynamicResource SukiBackground}"
+                            BorderBrush="#33808080"
+                            BorderThickness="1"
+                            Padding="14,8"
+                            IsVisible="{Binding #Root.IsBatchSelectionMode}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock VerticalAlignment="Center" Margin="2,0,6,0">
+                                <Run Text="已选 " /><Run Text="{Binding #Root.SelectedSongCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" 首" />
+                            </TextBlock>
+                            <Button Classes="Basic" Content="全选"
+                                    Command="{Binding #Root.SelectAllSongsCommand}" />
+                            <Button Classes="Basic" Content="删除所选"
+                                    Command="{Binding #Root.BatchRemoveCommand}"
+                                    CommandParameter="{Binding #Root.SelectedSongItems}"
+                                    Foreground="#E04848" />
+                            <Button Classes="Basic" Content="复制到歌单"
+                                    Command="{Binding #Root.BatchCopyToPlaylistCommand}"
+                                    CommandParameter="{Binding #Root.SelectedSongItems}" />
+                            <Button Classes="Basic" Content="移动到歌单"
+                                    Command="{Binding #Root.BatchMoveToPlaylistCommand}"
+                                    CommandParameter="{Binding #Root.SelectedSongItems}" />
+                            <Button Classes="Basic" Content="完成"
+                                    Command="{Binding #Root.ToggleBatchModeCommand}"
+                                    FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </suki:GlassCard>
+
+        <!-- 拖拽跟手卡片：显示正在拖动的歌曲封面与名称 -->
+        <Border HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                CornerRadius="10"
+                Background="{DynamicResource SukiBackground}"
+                BorderBrush="#8860A5FA"
+                BorderThickness="1"
+                Padding="8,6"
+                IsHitTestVisible="False"
+                IsVisible="{Binding #Root.IsDragGhostVisible}"
+                RenderTransform="{Binding #Root.DragGhostTransform}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Border Width="34" Height="34" CornerRadius="6" ClipToBounds="True" Background="#22FFFFFF">
+                    <Image asyncImageLoader:ImageLoader.Source="{Binding #Root.DragGhostCover}"
+                           Width="34"
+                           Height="34"
+                           Stretch="UniformToFill" />
+                </Border>
+                <TextBlock Text="{Binding #Root.DragGhostTitle}"
+                           MaxWidth="180"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

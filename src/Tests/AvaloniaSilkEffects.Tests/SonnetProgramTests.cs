@@ -1,0 +1,250 @@
+using AvaloniaSilkEffects.Sonnet;
+using System.Numerics;
+using System.Text.Json;
+
+namespace AvaloniaSilkEffects.Tests;
+
+public sealed class SonnetProgramTests
+{
+    private static SonnetLine Line(string text, double start, double end, int? block = null, bool chorus = false) =>
+        new(text, start, end, [new(text, start, end)], BlockIndex: block, IsChorus: chorus);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GlitchOptOut_PreservesSmoothTransitions(bool entering)
+    {
+        for (var i = 0; i <= 100; i++)
+        {
+            var progress = i / 100d;
+            var smooth = SonnetTransitions.Resolve(SonnetTransitionKind.MonoGlitch,
+                entering, progress, 42, allowGlitch: false);
+            Assert.Equal(0, smooth.Glitch);
+            Assert.Equal(SonnetTransitions.Resolve(SonnetTransitionKind.FastBlur,
+                entering, progress, 42), smooth);
+            Assert.Equal(SonnetTransitions.Resolve(SonnetTransitionKind.CameraPull,
+                entering, progress, 42), SonnetTransitions.Resolve(SonnetTransitionKind.CameraPull,
+                entering, progress, 42, allowGlitch: false));
+        }
+        Assert.True(SonnetTransitions.Resolve(SonnetTransitionKind.MonoGlitch,
+            entering, 0.5, 42).Glitch > 0);
+    }
+
+    [Fact]
+    public void Compiler_IsDeterministicAndRegistersSevenShotKinds()
+    {
+        var lines = Enumerable.Range(0, 8).Select(index => Line($"lyric {index}!", index * 2, index * 2 + 1.2, chorus: index == 3)).ToArray();
+
+        var first = SonnetProgramCompiler.Compile(lines, "song-a");
+        var second = SonnetProgramCompiler.Compile(lines, "song-a");
+
+        Assert.Equal(JsonSerializer.Serialize(first), JsonSerializer.Serialize(second));
+        Assert.Equal(7, SonnetProgramCompiler.ShotKinds.Distinct().Count());
+        Assert.Contains(first.Paragraphs, paragraph => paragraph.Kind == SonnetParagraphKind.Chorus);
+        Assert.Equal(first.Paragraphs.Count - 1,
+            SonnetProgramCompiler.FindParagraphIndexAtTime(first, first.Paragraphs[^1].StartTime));
+    }
+
+    [Fact]
+    public void SemanticCompiler_PreservesCjkWhitespaceAndPunctuation()
+    {
+        var source = new SonnetLine("世界， 再见！", 1, 4,
+        [
+            new("世界", 1, 2),
+            new("再见", 2.5, 3.7),
+        ]);
+
+        var segments = SonnetProgramCompiler.BuildSemanticSegments(source);
+
+        Assert.Equal(source.FullText, string.Concat(segments.Select(segment => segment.Text)));
+        Assert.Contains("，", segments[0].Text);
+        Assert.Contains(0, segments.SelectMany(segment => segment.WordIndices));
+        Assert.True(segments[^1].EndTime <= source.EndTime);
+    }
+
+    [Fact]
+    public void Compiler_CapsParagraphsAndGroupsAtMostFourLinesPerShot()
+    {
+        var program = SonnetProgramCompiler.Compile(
+            Enumerable.Range(0, 8).Select(index => Line($"line {index}", index * 1.1, index * 1.1 + 0.8)).ToArray(), "caps");
+
+        Assert.True(program.Paragraphs.Count > 1);
+        Assert.All(program.Paragraphs, paragraph => Assert.True(paragraph.Lines.Count <= 6));
+        Assert.All(program.Paragraphs.SelectMany(paragraph => paragraph.Shots), shot => Assert.True(shot.LineIndices.Count <= 4));
+    }
+
+    [Fact]
+    public void Layouts_KeepSegmentOrderButProduceSevenDistinctCompositions()
+    {
+        var segments = SonnetProgramCompiler.BuildSemanticSegments(new SonnetLine(
+            "明かり に あなたへ", 0, 3,
+            [new("明かり", 0, 0.8), new("に", 1, 1.4), new("あなたへ", 1.5, 3)]));
+        var signatures = new HashSet<string>();
+        foreach (var kind in SonnetProgramCompiler.ShotKinds)
+        {
+            var layout = SonnetTypographyLayout.Resolve([segments], kind, SonnetParagraphKind.Verse,
+                1280, 720, 40, (text, size, _) => (text.Length * size * 0.58f, size * 1.2f));
+            Assert.Equal(segments.Count, layout.Count);
+            Assert.Equal(Enumerable.Range(0, segments.Count), layout.Select(item => item.SegmentIndex));
+            signatures.Add(string.Join('|', layout.Select(item => $"{item.X:F1},{item.Y:F1},{item.Rotation:F2}")));
+        }
+        Assert.Equal(7, signatures.Count);
+    }
+
+    [Fact]
+    public void Motion_UsesAbsoluteTimeAndStableFocusWeights()
+    {
+        var first = SonnetMotion.ShotFrame(SonnetShotKind.TypeImpact, 0.42);
+        var second = SonnetMotion.ShotFrame(SonnetShotKind.TypeImpact, 0.42);
+        var weights = SonnetMotion.FocusWeights([(1, 2), (4, 5)], 3);
+
+        Assert.Equal(first, second);
+        Assert.Equal(1, weights.Sum(), 10);
+        Assert.All(weights, weight => Assert.InRange(weight, 0, 1));
+    }
+
+    [Fact]
+    public void MotionGraphics_AreDeterministicAndSeekStable()
+    {
+        var first = BuildMg(0x1234abcd);
+        var second = BuildMg(0x1234abcd);
+        first.Update(8.25, 2, 12, new(0.4f, 0.7f, 0.2f), new(24, -12), 1.08f, 0.12f);
+        second.Update(3.1, 2, 12, new(0, 0, 0), Vector2.Zero, 1, 0);
+        second.Update(8.25, 2, 12, new(0.4f, 0.7f, 0.2f), new(24, -12), 1.08f, 0.12f);
+
+        var firstSnapshot = first.Snapshot();
+        var secondSnapshot = second.Snapshot();
+        Assert.Equal(firstSnapshot, secondSnapshot);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Camera_FollowsTimedRowsAndColumnsRatherThanStayingOnFirstHero(bool vertical)
+    {
+        Vector2 Point(float value) => vertical ? new(value, 0) : new(0, value);
+        IReadOnlyList<(Vector2 Position, double StartTime, bool IsBackgroundShape)>[] segments =
+        [
+            [(Point(-600), 1, false), (Point(-600), 2, false)],
+            [(Point(0), 4, false), (Point(0), 5, false)],
+            [(Point(600), 7, false), (Point(600), 8, false)],
+        ];
+        foreach (var (time, expected) in new[] { (1.5, -600f), (4.5, 0f), (7.5, 600f) })
+        {
+            var focus = SonnetScene.ResolveTrackingFocus(segments, time, 1, 8, Point(-600));
+            Assert.InRange(Vector2.Distance(focus, Point(expected)), 0, 0.001f);
+        }
+        var first = SonnetScene.ResolveTrackingFocus(segments, 4.5, 1, 8, Point(-600));
+        _ = SonnetScene.ResolveTrackingFocus(segments, 7.5, 1, 8, Point(-600));
+        Assert.Equal(first, SonnetScene.ResolveTrackingFocus(segments, 4.5, 1, 8, Point(-600)));
+    }
+
+    [Fact]
+    public void MotionGraphics_ShowFiniteCometTailsInsteadOfWholePaths()
+    {
+        var guide = BuildGuide(0x8910abcd);
+
+        guide.Update(0.24);
+
+        Assert.True(guide.VisibleTrailSegments > 0);
+        Assert.True(guide.VisibleTrailSegments < guide.TotalTrailSegments);
+    }
+
+    [Fact]
+    public void MotionGraphics_ClampAudioWithoutChangingBasePathsOrParticlePositions()
+    {
+        var view = BuildMg(0x10203040);
+        view.Update(4.5, 0, 12, new(-20, float.PositiveInfinity, float.NaN), new(8, 12), 1.04f, 0.08f);
+        var clamped = view.Snapshot();
+        view.Update(4.5, 0, 12, new(0, 0, 0), new(8, 12), 1.04f, 0.08f);
+        var zero = view.Snapshot();
+
+        Assert.Equal(clamped.Select(particle => particle.Position),
+            zero.Select(particle => particle.Position));
+        Assert.All(clamped, particle =>
+        {
+            Assert.True(float.IsFinite(particle.Alpha));
+            Assert.True(float.IsFinite(particle.Scale.X));
+        });
+    }
+
+    [Fact]
+    public void MotionGraphics_ApplyOriginalLayerParallaxAndUprightFixedGeometry()
+    {
+        var view = BuildMg(0x22446688);
+
+        view.Update(5, 2, 12, new(0.8f, 0.7f, 0.6f), new(20, -10), 1.1f, 0.2f);
+
+        Assert.Equal(new Vector2(8, -4), view.ParticleLayer.Position);
+        Assert.Equal(0.15f, view.ParticleLayer.Rotation, 5);
+        Assert.Equal(1.03f, view.ParticleLayer.Scale.X, 5);
+        Assert.NotNull(view.FixedGeometryLayer);
+        Assert.Equal(-0.2f, view.FixedGeometryLayer!.Rotation, 5);
+        Assert.NotEmpty(view.FixedGeometryLayer.Children);
+    }
+
+    [Fact]
+    public void MotionGraphics_StaggerFlowerIconsAndReactToAudio()
+    {
+        var view = BuildMg(0x1234abcd);
+
+        view.Update(2, 2, 12, default, Vector2.Zero, 1, 0);
+        var entering = view.Snapshot();
+        Assert.Equal(6, entering.Count(item => item.Alpha == 0));
+
+        view.Update(11.5, 2, 12, new(1, 1, 1), Vector2.Zero, 1, 0);
+        var revealed = view.Snapshot();
+        Assert.All(revealed.Where(item => item.Alpha < 1), item => Assert.True(item.Alpha > 0));
+        Assert.Contains(revealed, item => item.Scale.X > 1.35f);
+    }
+
+    [Fact]
+    public void ThemedMotionGraphics_ProvideTwelveDistinctFiniteCompositions()
+    {
+        var signatures = new HashSet<int>();
+        for (uint seed = 24; seed <= 35; seed++)
+        {
+            var view = BuildMg(seed);
+            var mainLayer = view.Root.Children.OfType<EffectContainer>()
+                .First(layer => layer != view.ParticleLayer && layer != view.FixedGeometryLayer);
+
+            Assert.NotEmpty(mainLayer.Children);
+            Assert.All(Flatten(mainLayer), node =>
+            {
+                Assert.True(float.IsFinite(node.Position.X));
+                Assert.True(float.IsFinite(node.Position.Y));
+                Assert.True(float.IsFinite(node.Alpha));
+            });
+            signatures.Add(Flatten(mainLayer).Count());
+        }
+
+        Assert.True(signatures.Count >= 10);
+    }
+
+    private static SonnetMgView BuildMg(uint seed)
+    {
+        var shot = new SonnetShot("shot", SonnetShotKind.TypeImpact, 1, 12, [0], [], new(0, 0, 1, 0));
+        var theme = new SonnetTheme(new(0.02f, 0.03f, 0.05f), new(0.95f, 0.95f, 0.92f),
+            new(1, 0.25f, 0.42f), new(0.1f, 0.8f, 0.94f));
+        return SonnetMgBuilder.BuildShot(shot, theme, 1280, 720, seed, new SonnetTuning());
+    }
+
+    private static IEnumerable<EffectNode> Flatten(EffectNode node)
+    {
+        yield return node;
+        if (node is not EffectContainer container) yield break;
+        foreach (var child in container.Children)
+        foreach (var descendant in Flatten(child))
+            yield return descendant;
+    }
+
+    private static SonnetGuideView BuildGuide(uint seed)
+    {
+        var segment = new SonnetSemanticSegment("世界", 0, 2, 2, 3, [0], [], true);
+        var placement = new SonnetTypographyPlacement(0, "世界", SonnetSegmentRole.Hero,
+            1, 160, 80, 0, 0, 0, -120, 40, false, 0.2f);
+        var theme = new SonnetTheme(new(0.02f, 0.03f, 0.05f), EffectColor.White,
+            new(1, 0.25f, 0.42f), new(0.1f, 0.8f, 0.94f));
+        return SonnetMgBuilder.BuildGuide(segment, placement, 72, theme, seed);
+    }
+}

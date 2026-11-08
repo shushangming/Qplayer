@@ -1,0 +1,495 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-linux:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            framework: net10.0-windows10.0.19041.0
+            name: win-x64
+          - os: windows-latest
+            rid: win-arm64
+            framework: net10.0-windows10.0.19041.0
+            name: win-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+            framework: net10.0
+            name: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+            framework: net10.0
+            name: linux-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: preview
+
+      - name: Install Velopack CLI
+        shell: bash
+        run: dotnet tool install -g vpk
+
+      - name: Publish App
+        shell: bash
+        # Avoid linking the ARM64 executable against the runner's newer glibc.
+        # Use the portable self-contained .NET runtime for older Linux systems.
+        run: |
+          CLEAN_VERSION=${GITHUB_REF_NAME#v}
+          dotnet publish ./src/Apps/KugouAvaloniaPlayer/KugouAvaloniaPlayer.csproj \
+            -c Release \
+            -f ${{ matrix.framework }} \
+            "-p:BUILD_VERSION=$CLEAN_VERSION" \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:DebugType=None \
+            -p:PublishAot=${{ matrix.rid != 'linux-arm64' }} \
+            -p:DebugSymbols=false \
+            -o ./publish
+
+      - name: Remove debug symbol files
+        shell: bash
+        run: |
+          find ./publish -type d -name '*.dSYM' -prune -exec rm -rf {} +
+          find ./publish -type f \( -name '*.pdb' -o -name '*.dbg' \) -delete
+
+      - name: Download previous Velopack release
+        shell: bash
+        run: |
+          vpk download github \
+            --repoUrl "https://github.com/${{ github.repository }}" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --channel "${{ matrix.rid }}" \
+            -o ./releases || true
+
+      - name: Pack with Velopack
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+
+          EXE_NAME="KugouAvaloniaPlayer"
+          ICON_PATH="./src/Apps/KugouAvaloniaPlayer/Assets/ka-logo.png"
+          EXTRA_ARGS=()
+
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            EXE_NAME="KugouAvaloniaPlayer.exe"
+            ICON_PATH="./src/Apps/KugouAvaloniaPlayer/Assets/Test.ico"
+
+            # Generate Windows MSI installer.
+            # The MSI is patched below to allow selecting the installation directory.
+            EXTRA_ARGS+=(--msi true --instLocation PerMachine)
+          fi
+
+          vpk pack \
+            -u KugouAvaloniaPlayer \
+            -v "$VERSION" \
+            -p ./publish \
+            -e "$EXE_NAME" \
+            -i "$ICON_PATH" \
+            -c "${{ matrix.rid }}" \
+            -r "${{ matrix.rid }}" \
+            -o ./releases \
+            "${EXTRA_ARGS[@]}"
+
+          find ./releases -type f -name '*.nupkg' ! -name "KugouAvaloniaPlayer-${VERSION}-*.nupkg" -delete
+          find ./releases -type f -iname '*-delta.nupkg' -delete
+
+      - name: Add install directory selection to MSI
+        if: startsWith(matrix.rid, 'win-')
+        shell: pwsh
+        run: |
+          Get-ChildItem ./releases/*.msi | ForEach-Object {
+            ./.github/scripts/customize-velopack-msi.ps1 -Path $_.FullName
+          }
+
+      - name: Publish Linux single-file test app (without Velopack)
+        if: startsWith(matrix.rid, 'linux-')
+        shell: bash
+        run: |
+          CLEAN_VERSION=${GITHUB_REF_NAME#v}
+          dotnet publish ./src/Apps/KugouAvaloniaPlayer/KugouAvaloniaPlayer.csproj \
+            -c Release \
+            -f ${{ matrix.framework }} \
+            "-p:BUILD_VERSION=$CLEAN_VERSION" \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishAot=false \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -o ./publish-singlefile
+
+          mkdir -p ./releases
+          cp ./publish-singlefile/KugouAvaloniaPlayer \
+            ./releases/KugouAvaloniaPlayer-${{ matrix.rid }}-singlefile-test
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: releases-${{ matrix.name }}
+          path: ./releases/*
+
+  build-macos:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            rid: osx-arm64
+            name: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+            name: osx-x64
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      APP_NAME: KugouAvaloniaPlayer
+      BUNDLE_ID: com.KugouAvaloniaPlayer.KugouAvaloniaPlayer
+      RID: ${{ matrix.rid }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: preview
+
+      - name: Install Velopack CLI
+        shell: bash
+        run: dotnet tool install -g vpk
+
+      - name: Set version
+        shell: bash
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build macOS icon (.icns)
+        shell: bash
+        run: |
+          ICONSET_DIR="./dist/AppIcon.iconset"
+          SOURCE_PNG="./src/Apps/KugouAvaloniaPlayer/Assets/ka-logo.png"
+          ICNS_PATH="./dist/KugouAvaloniaPlayer.icns"
+
+          mkdir -p "$ICONSET_DIR"
+
+          sips -z 16 16 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_16x16.png"
+          sips -z 32 32 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_16x16@2x.png"
+          sips -z 32 32 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_32x32.png"
+          sips -z 64 64 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_32x32@2x.png"
+          sips -z 128 128 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_128x128.png"
+          sips -z 256 256 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_128x128@2x.png"
+          sips -z 256 256 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_256x256.png"
+          sips -z 512 512 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_256x256@2x.png"
+          sips -z 512 512 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_512x512.png"
+          sips -z 1024 1024 "$SOURCE_PNG" --out "$ICONSET_DIR/icon_512x512@2x.png"
+
+          iconutil -c icns "$ICONSET_DIR" -o "$ICNS_PATH"
+
+      - name: Publish macOS files
+        shell: bash
+        run: |
+          dotnet publish ./src/Apps/KugouAvaloniaPlayer/KugouAvaloniaPlayer.csproj \
+            -c Release \
+            -f net10.0 \
+            "-p:BUILD_VERSION=$VERSION" \
+            -r "$RID" \
+            --self-contained true \
+            -p:DebugType=None \
+            -p:PublishAot=true \
+            -p:DebugSymbols=false \
+            -o ./publish/macos
+
+      - name: Remove debug symbol files
+        shell: bash
+        run: |
+          find ./publish/macos -type d -name '*.dSYM' -prune -exec rm -rf {} +
+          find ./publish/macos -type f \( -name '*.pdb' -o -name '*.dbg' \) -delete
+
+      - name: Create .app bundle
+        shell: bash
+        run: |
+          APP="./dist/${APP_NAME}.app"
+
+          mkdir -p "$APP/Contents/MacOS"
+          mkdir -p "$APP/Contents/Resources"
+
+          cp -R ./publish/macos/* "$APP/Contents/MacOS/"
+
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleDevelopmentRegion</key>
+            <string>en</string>
+            <key>CFBundleDisplayName</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundleExecutable</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundleIdentifier</key>
+            <string>${BUNDLE_ID}</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundleName</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${VERSION}</string>
+            <key>CFBundleVersion</key>
+            <string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>12.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          chmod +x "$APP/Contents/MacOS/${APP_NAME}"
+
+      - name: Show app structure
+        shell: bash
+        run: |
+          find "./dist/${APP_NAME}.app" -maxdepth 3 | sort
+
+      - name: Smoke run app binary
+        shell: bash
+        run: |
+          APP_BIN="./dist/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
+
+          "$APP_BIN" > smoke.log 2>&1 &
+          APP_PID=$!
+
+          sleep 8
+
+          if ps -p "$APP_PID" > /dev/null; then
+            echo "App is still running after 8s, treating as smoke-pass"
+            kill "$APP_PID" || true
+          else
+            echo "App exited before 8s"
+          fi
+
+          cat smoke.log || true
+
+      - name: Zip app bundle
+        shell: bash
+        run: |
+          mkdir -p ./releases
+          ditto -c -k --sequesterRsrc --keepParent \
+            "./dist/${APP_NAME}.app" \
+            "./releases/${APP_NAME}-${RID}.app.zip"
+
+      - name: Download previous Velopack release
+        shell: bash
+        run: |
+          vpk download github \
+            --repoUrl "https://github.com/${{ github.repository }}" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --channel "$RID" \
+            -o ./releases || true
+
+      - name: Pack with Velopack (macOS)
+        shell: bash
+        run: |
+          vpk pack \
+            -u KugouAvaloniaPlayer \
+            -v "$VERSION" \
+            -p ./publish/macos \
+            -e "$APP_NAME" \
+            -i ./dist/KugouAvaloniaPlayer.icns \
+            -c "$RID" \
+            -r "$RID" \
+            -o ./releases
+
+          find ./releases -type f -name '*.nupkg' ! -name "${APP_NAME}-${VERSION}-*.nupkg" -delete
+          find ./releases -type f -iname '*-delta.nupkg' -delete
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: releases-${{ matrix.name }}
+          path: ./releases/*
+
+  release:
+    needs:
+      - build-windows-linux
+      - build-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./all_artifacts
+
+      - name: Prepare Clean Release
+        shell: bash
+        run: |
+          mkdir -p ./release_files
+
+          cp ./all_artifacts/releases-win-x64/*-Setup.exe ./release_files/KugouAvaloniaPlayer-win-x64.exe 2>/dev/null || true
+          cp ./all_artifacts/releases-win-x64/*-Portable.zip ./release_files/KugouAvaloniaPlayer-win-x64.zip 2>/dev/null || true
+          cp ./all_artifacts/releases-win-x64/*.msi ./release_files/KugouAvaloniaPlayer-win-x64.msi 2>/dev/null || true
+          cp ./all_artifacts/releases-win-arm64/*-Setup.exe ./release_files/KugouAvaloniaPlayer-win-arm64.exe 2>/dev/null || true
+          cp ./all_artifacts/releases-win-arm64/*-Portable.zip ./release_files/KugouAvaloniaPlayer-win-arm64.zip 2>/dev/null || true
+          cp ./all_artifacts/releases-win-arm64/*.msi ./release_files/KugouAvaloniaPlayer-win-arm64.msi 2>/dev/null || true
+          cp ./all_artifacts/releases-linux-x64/*.AppImage ./release_files/KugouAvaloniaPlayer-linux-x64.AppImage 2>/dev/null || true
+          cp ./all_artifacts/releases-linux-arm64/*.AppImage ./release_files/KugouAvaloniaPlayer-linux-arm64.AppImage 2>/dev/null || true
+          cp ./all_artifacts/releases-linux-x64/KugouAvaloniaPlayer-linux-x64-singlefile-test ./release_files/
+          cp ./all_artifacts/releases-linux-arm64/KugouAvaloniaPlayer-linux-arm64-singlefile-test ./release_files/
+
+          cp ./all_artifacts/releases-osx-arm64/*osx-arm64.app.zip ./release_files/KugouAvaloniaPlayer-mac-arm64.app.zip 2>/dev/null || true
+          cp ./all_artifacts/releases-osx-x64/*osx-x64.app.zip ./release_files/KugouAvaloniaPlayer-mac-x64.app.zip 2>/dev/null || true
+          cp ./all_artifacts/releases-osx-arm64/*-Setup.pkg ./release_files/KugouAvaloniaPlayer-mac-arm64-Setup.pkg 2>/dev/null || true
+          cp ./all_artifacts/releases-osx-x64/*-Setup.pkg ./release_files/KugouAvaloniaPlayer-mac-x64-Setup.pkg 2>/dev/null || true
+
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            source_dir="./all_artifacts/releases-${rid}"
+            for package in "$source_dir"/*.nupkg; do
+              [[ -f "$package" ]] || continue
+              base=$(basename "$package")
+              cp "$package" "./release_files/${rid}-${base}"
+            done
+            for index in "$source_dir"/releases.*.json; do
+              [[ -f "$index" ]] || continue
+              base=$(basename "$index")
+              cp "$index" "./release_files/$base"
+              sed -E -i "s#([\"/:])KugouAvaloniaPlayer-#\1${rid}-KugouAvaloniaPlayer-#g" "./release_files/$base"
+            done
+          done
+
+          cp ./release_files/releases.win-x64.json ./release_files/releases.win.json
+          cp ./release_files/releases.linux-x64.json ./release_files/releases.linux.json
+          cp ./release_files/releases.osx-arm64.json ./release_files/releases.osx.json
+
+          find ./release_files -type f -iname '*-delta.nupkg' -delete
+
+          ls -lah ./release_files
+
+      - name: Prepare Gitee update package
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          mkdir -p ./gitee_release_files
+
+          copy_required() {
+            local source_file="$1"
+            local target_dir="$2"
+
+            if [[ ! -f "$source_file" ]]; then
+              echo "Missing required Gitee update file: $source_file"
+              exit 1
+            fi
+
+            cp "$source_file" "$target_dir/"
+          }
+
+          for channel in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64 win linux osx; do
+            copy_required "./release_files/releases.${channel}.json" ./gitee_release_files
+          done
+          shopt -s nullglob
+          update_packages=(./release_files/*-KugouAvaloniaPlayer-"${VERSION}"-*.nupkg)
+          if [[ ${#update_packages[@]} -eq 0 ]]; then
+            echo "Missing required Gitee update packages for version: ${VERSION}"
+            exit 1
+          fi
+
+          cp "${update_packages[@]}" ./gitee_release_files/
+
+          ls -lah ./gitee_release_files
+
+      - name: Upload Gitee update package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitee-update-files
+          path: ./gitee_release_files/*
+
+      - name: Extract latest changelog from README
+        shell: bash
+        run: |
+          awk '
+            /^## 更新日志/ { inlog=1; next }
+            inlog && /^### v/ && !found { found=1; print; next }
+            found && /^### v/ { exit }
+            found { print }
+          ' README.md > RELEASE_NOTES.md
+
+          if [[ ! -s RELEASE_NOTES.md ]]; then
+            echo "未从 README.md 提取到更新日志，回退到默认文案。"
+            {
+              echo "### ${GITHUB_REF_NAME}"
+              echo
+              echo "- 请查看提交记录与附件了解本次更新内容。"
+            } > RELEASE_NOTES.md
+          fi
+
+          {
+            echo "## 下载"
+            echo
+            echo "- Windows x64: [KugouAvaloniaPlayer-win-x64.msi](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-win-x64.msi)"
+            echo "- Windows ARM64: [KugouAvaloniaPlayer-win-arm64.msi](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-win-arm64.msi)"
+            echo "- Linux x64: [KugouAvaloniaPlayer-linux-x64.AppImage](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-linux-x64.AppImage)"
+            echo "- Linux ARM64: [KugouAvaloniaPlayer-linux-arm64.AppImage](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-linux-arm64.AppImage)"
+            echo "- Linux x64 单文件测试版（无需安装，下载后 chmod +x）: [KugouAvaloniaPlayer-linux-x64-singlefile-test](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-linux-x64-singlefile-test)"
+            echo "- Linux ARM64 单文件测试版（无需安装，下载后 chmod +x）: [KugouAvaloniaPlayer-linux-arm64-singlefile-test](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-linux-arm64-singlefile-test)"
+            echo "- macOS Apple Silicon: [KugouAvaloniaPlayer-mac-arm64-Setup.pkg](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-mac-arm64-Setup.pkg)"
+            echo "- macOS Intel: [KugouAvaloniaPlayer-mac-x64-Setup.pkg](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/KugouAvaloniaPlayer-mac-x64-Setup.pkg)"
+            echo
+            cat RELEASE_NOTES.md
+          } > RELEASE_NOTES_WITH_DOWNLOADS.md
+          mv RELEASE_NOTES_WITH_DOWNLOADS.md RELEASE_NOTES.md
+
+          echo "==== RELEASE_NOTES.md ===="
+          cat RELEASE_NOTES.md
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          preserve_order: true
+          files: |
+            ./release_files/KugouAvaloniaPlayer-win-x64.exe
+            ./release_files/KugouAvaloniaPlayer-win-x64.msi
+            ./release_files/KugouAvaloniaPlayer-win-x64.zip
+            ./release_files/KugouAvaloniaPlayer-win-arm64.exe
+            ./release_files/KugouAvaloniaPlayer-win-arm64.msi
+            ./release_files/KugouAvaloniaPlayer-win-arm64.zip
+            ./release_files/KugouAvaloniaPlayer-linux-x64.AppImage
+            ./release_files/KugouAvaloniaPlayer-linux-arm64.AppImage
+            ./release_files/KugouAvaloniaPlayer-linux-x64-singlefile-test
+            ./release_files/KugouAvaloniaPlayer-linux-arm64-singlefile-test
+            ./release_files/KugouAvaloniaPlayer-mac-arm64.app.zip
+            ./release_files/KugouAvaloniaPlayer-mac-x64.app.zip
+            ./release_files/KugouAvaloniaPlayer-mac-arm64-Setup.pkg
+            ./release_files/KugouAvaloniaPlayer-mac-x64-Setup.pkg
+            ./release_files/*.nupkg
+            ./release_files/releases.*.json
+          body_path: RELEASE_NOTES.md
+          token: ${{ secrets.GITHUB_TOKEN }}

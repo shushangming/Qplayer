@@ -1,0 +1,115 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:localControls="using:KugouAvaloniaPlayer.Controls"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="KugouAvaloniaPlayer.Views.RankView"
+             x:Name="RankRoot"
+             x:DataType="vm:RankViewModel">
+    <UserControl.Styles>
+        <Style Selector="Button.RankCompactCard">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,14,14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+            <Setter Property="RenderTransform" Value="translateY(0px) scale(1)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.RankCompactCard:pointerover">
+            <Setter Property="RenderTransform" Value="translateY(-3px) scale(1.03)" />
+        </Style>
+
+        <Style Selector="Button.RankCompactCard:pressed">
+            <Setter Property="RenderTransform" Value="translateY(0px) scale(0.98)" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="15">
+        <Grid IsVisible="{Binding !IsShowingSongs}" RowDefinitions="Auto, *">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,20">
+                <Button Classes="Basic"
+                        Command="{Binding NavigateBackCommand}"
+                        Cursor="Hand"
+                        ToolTip.Tip="返回发现">
+                    <PathIcon Data="{x:Static suki:Icons.ChevronLeft}" Foreground="{DynamicResource SukiLowText}" />
+                </Button>
+                <TextBlock Text="排行榜"
+                           FontSize="28"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" Padding="0,0,0,50">
+                <ItemsControl ItemsSource="{Binding RankSections}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="vm:RankSection">
+                            <StackPanel Margin="0,0,0,22">
+                                <TextBlock Text="{Binding Title}"
+                                           Margin="0,0,0,12"
+                                           FontSize="20"
+                                           FontWeight="Bold" />
+
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="vm:RankItem">
+                                            <Button Classes="RankCompactCard"
+                                                    Width="132"
+                                                    Command="{Binding #RankRoot.((vm:RankViewModel)DataContext).OpenRankCommand}"
+                                                    CommandParameter="{Binding .}">
+                                                <StackPanel Spacing="8" Margin="0,5,0,0">
+                                                    <Border Width="132"
+                                                            Height="132"
+                                                            CornerRadius="14"
+                                                            ClipToBounds="True"
+                                                            Background="{StaticResource SukiPrimaryColorLow}">
+                                                        <Image asyncImageLoader:ImageLoader.Source="{Binding Cover}"
+                                                               behaviors:ImageRenderOptions.InterpolationSource="{Binding Cover}"
+                                                               Stretch="UniformToFill" />
+                                                    </Border>
+
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxLines="2" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <localControls:SongCollectionDetailView
+            PlaybackCommands="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).Player}"
+            SongInteractions="{Binding $parent[localControls:KugouWindow].((vm:MainWindowViewModel)DataContext).SongInteractions}"
+            IsVisible="{Binding IsShowingSongs}"
+            Cover="{Binding SelectedRank.Cover}"
+            Title="{Binding SelectedRank.Name}"
+            Songs="{Binding SelectedRankSongs}"
+            LoadMoreCommand="{Binding LoadMoreCommand}"
+            BackCommand="{Binding GoBackCommand}"
+            IsLoadingMore="{Binding IsLoadingMore}"
+            LoadingMoreText="正在加载歌曲..." />
+    </Grid>
+</UserControl>

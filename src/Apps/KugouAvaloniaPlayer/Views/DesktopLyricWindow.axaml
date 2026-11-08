@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+        xmlns:views="using:KugouAvaloniaPlayer.Views"
+        xmlns:suki="https://github.com/kikipoulet/SukiUI"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="150"
+        x:Class="KugouAvaloniaPlayer.Views.DesktopLyricWindow"
+        x:DataType="vm:DesktopLyricViewModel"
+        Title="DesktopLyric"
+        Width="1024" Height="140" CanResize="False"
+        WindowDecorations="None" Background="Transparent"
+        TransparencyLevelHint="Transparent" Topmost="True"
+        ShowInTaskbar="False" WindowStartupLocation="Manual">
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:HorizontalDesktopLyricLayoutViewModel">
+            <views:HorizontalDesktopLyricLayoutView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:VerticalDesktopLyricLayoutViewModel">
+            <views:VerticalDesktopLyricLayoutView />
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="IsTabStop" Value="False" />
+            <Style Selector="^:focus-visible"><Setter Property="FocusAdorner" Value="{x:Null}" /></Style>
+        </Style>
+        <Style Selector="Border#BackgroundPlate">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="12" />
+        </Style>
+        <Style Selector="suki|GlassCard#ControlCard">
+            <Setter Property="Width" Value="716" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsOpaque" Value="False" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0" />
+            <Setter Property="RenderTransform" Value="translateY(-6px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="suki|GlassCard#ControlCard.expanded">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="translateY(0)" />
+        </Style>
+        <Style Selector="suki|GlassCard#ControlCard.locked"><Setter Property="Opacity" Value="0" /></Style>
+        <Style Selector="StackPanel#LeftControls">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransformOrigin" Value="1,0.5" />
+            <Setter Property="RenderTransform" Value="scaleX(1)" />
+            <Setter Property="Transitions"><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2" /><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" Easing="CubicEaseOut" /></Transitions></Setter>
+        </Style>
+        <Style Selector="StackPanel#LeftControls.locked">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scaleX(0.02)" />
+        </Style>
+        <Style Selector="StackPanel#RightControls">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransformOrigin" Value="0,0.5" />
+            <Setter Property="RenderTransform" Value="scaleX(1)" />
+            <Setter Property="Transitions"><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2" /><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" Easing="CubicEaseOut" /></Transitions></Setter>
+        </Style>
+        <Style Selector="StackPanel#RightControls.locked">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scaleX(0.02)" />
+        </Style>
+        <Style Selector="Button#CenterLockButton"><Setter Property="Opacity" Value="1" /><Setter Property="Transitions"><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.14" /></Transitions></Setter></Style>
+        <Style Selector="Button#CenterLockButton.locked"><Setter Property="Opacity" Value="0" /></Style>
+        <Style Selector="Border#CollapsedLockBubble">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="#6C383838" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform" Value="scaleX(0.72) scaleY(0.86)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border#CollapsedLockBubble.locked">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransform" Value="scaleX(1) scaleY(1)" />
+        </Style>
+        <Style Selector="Border#CollapsedLockBubble.locked.revealed">
+            <Setter Property="Opacity" Value="0.96" />
+            <Setter Property="RenderTransform" Value="scaleX(1.06) scaleY(1.04)" />
+        </Style>
+        <Style Selector="Panel.DesktopLane">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <Grid PointerEntered="OnControlHotspotPointerEntered" PointerExited="OnControlHotspotPointerExited">
+        <Border Name="BackgroundPlate" PointerPressed="OnLyricPointerPressed"
+                IsHitTestVisible="{Binding IsUnlockedInteractionEnabled}" />
+
+        <ContentControl Content="{Binding ActiveLayout}" />
+
+        <Border Name="CollapsedLockBubble"
+                Classes.locked="{Binding IsLocked}"
+                Classes.revealed="{Binding IsCollapsedLockIconHovered}"
+                IsVisible="{Binding IsEmbeddedCollapsedLockIconVisible}"
+                IsHitTestVisible="{Binding IsCollapsedLockIconVisible}"
+                Width="40" Height="40" Padding="8"
+                HorizontalAlignment="Center" VerticalAlignment="{Binding CollapsedLockIconAlignment}"
+                Margin="{Binding CollapsedLockIconMargin}"
+                PointerEntered="OnCollapsedIconPointerEntered"
+                PointerExited="OnCollapsedIconPointerExited"
+                PointerPressed="OnCollapsedIconPointerPressed">
+            <Svg Path="/Assets/lock2-svgrepo-com.svg" Width="22" Height="22" Css="path { fill: white; }" />
+        </Border>
+    </Grid>
+</Window>

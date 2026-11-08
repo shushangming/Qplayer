@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <Features Condition="'$(TargetFramework)' == 'net11.0'">$(Features);runtime-async=on</Features>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>AvaloniaSilkEffects</AssemblyName>
+    <PackageId>AvaloniaSilkEffects</PackageId>
+    <Description>A small OpenGL effects layer for Avalonia, built for kinetic typography and post-processing.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Silk.NET.Core" />
+    <PackageReference Include="Silk.NET.OpenGL" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" />
+    <PackageReference Include="ZLinq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Sonnet/LanguageData/*.bin" LogicalName="Sonnet.LanguageData.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Sonnet/LanguageData/*.txt" LogicalName="Sonnet.LanguageData.%(Filename)%(Extension)" />
+    <None Update="Sonnet/LanguageData/*.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="GenerateSonnetLanguageData" BeforeTargets="PrepareForBuild" Condition="'$(GenerateSonnetLanguageData)' == 'true'">
+    <Exec Command="python3 &quot;$(MSBuildThisFileDirectory)../../../tools/generate-sonnet-language-data.py&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>AvaloniaSilkEffects.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

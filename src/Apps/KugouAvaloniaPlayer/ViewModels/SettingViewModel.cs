@@ -1,0 +1,1661 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using ZLinq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Styling;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using KuGou.Net.Clients;
+using KuGou.Net.Protocol.Session;
+using KugouAvaloniaPlayer.Behaviors;
+using KugouAvaloniaPlayer.Models;
+using KugouAvaloniaPlayer.Services;
+using KugouAvaloniaPlayer.Services.GlobalShortcutService;
+using SimpleAudio;
+using SukiUI;
+using SukiUI.Dialogs;
+using EqSettingsView = KugouAvaloniaPlayer.Views.EqSettingsView;
+
+namespace KugouAvaloniaPlayer.ViewModels;
+
+public partial class SettingViewModel : PageViewModelBase
+{
+    private const string SettingsSectionGeneral = "常规";
+    private const string SettingsSectionPlayback = "播放与音效";
+    private const string SettingsSectionShortcuts = "快捷键";
+    private const string SettingsSectionLyrics = "歌词设置";
+    private const string SettingsSectionUpdate = "更新与关于";
+    private const string SettingsSectionAccount = "账户";
+    private const string RepositoryUrl = "https://github.com/Linsxyx/KugouMusic.NET";
+    private const string LyricScopeDesktop = "桌面歌词";
+    private const string LyricScopePlayPage = "播放页面歌词";
+    private const string LyricTargetMain = "歌词";
+    private const string LyricTargetTranslation = "歌词翻译";
+    private const string LyricAlignmentCenter = "居中";
+    private const string LyricAlignmentLeft = "居左";
+    private const string LyricAlignmentRight = "居右";
+    private const string DesktopLyricLayoutHorizontal = "横向";
+    private const string DesktopLyricLayoutVertical = "竖向";
+    private const string LyricColorModeDefault = "默认";
+    private const string LyricColorModeCustom = "自定义";
+    private const string DefaultTaskbarFontFamily = "Microsoft YaHei UI";
+    private const string DefaultTaskbarUnplayedColor = "#FF2E2E2E";
+    private const string DefaultTaskbarPlayedColor = "#FF268EEB";
+
+    private readonly LoginClient _authClient;
+    private readonly ISukiDialogManager _dialogManager;
+    private readonly EqSettingsViewModel _eqSettingsViewModel;
+    private readonly IGlobalShortcutService _globalShortcutService;
+    private readonly IFolderPickerService _folderPickerService;
+    private readonly IGitHubReleaseService _releaseService;
+    private readonly KgSessionManager _sessionManager;
+    private readonly IMainWindowService _mainWindowService;
+    private readonly IDesktopLyricWindowService _desktopLyricWindowService;
+    private readonly IMessenger _messenger;
+    private readonly ITaskbarLyricsService _taskbarLyricsService;
+    private readonly IUiPreferencesState _uiPreferencesState;
+    private readonly UserClient _userClient;
+    private readonly QqCookieService _qqCookieService;
+
+    private bool _isApplyingSettingsSnapshot;
+    private int _lastAppliedOutputDeviceId = AppSettings.SystemDefaultAudioOutputDeviceId;
+
+    [ObservableProperty] public partial bool AutoCheckUpdate { get; set; }
+
+    [ObservableProperty] public partial string SelectedAppFontFamily { get; set; } = AppFontService.SystemDefaultOption;
+
+    [ObservableProperty] public partial bool LinuxUseFullWindowDecorations { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomBackgroundImageStatus))]
+    public partial bool UseCustomBackgroundImage { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomBackgroundImageStatus))]
+    public partial string? CustomBackgroundImagePath { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomBackgroundImageOpacityDisplay))]
+    public partial double CustomBackgroundImageOpacity { get; set; } = 0.35;
+
+    [ObservableProperty] public partial string DesktopLyricColorHexInput { get; set; } = "#FFFFFFFF";
+    [ObservableProperty] public partial string DesktopSelectedLyricColorMode { get; set; } = LyricColorModeDefault;
+    [ObservableProperty] public partial string DesktopSelectedLyricColorTarget { get; set; } = LyricTargetMain;
+    [ObservableProperty] public partial string? DesktopSelectedLyricFontFamily { get; set; }
+    [ObservableProperty] public partial string DesktopSelectedLyricFontMode { get; set; } = LyricColorModeDefault;
+
+    [ObservableProperty] public partial bool DesktopLyricDoubleLineEnabled { get; set; }
+
+    [ObservableProperty] public partial string DesktopSelectedLyricAlignment { get; set; } = LyricAlignmentCenter;
+
+    [ObservableProperty] public partial string DesktopSelectedLyricLayout { get; set; } = DesktopLyricLayoutHorizontal;
+
+    [ObservableProperty] public partial bool EnableTaskbarLyrics { get; set; }
+
+    [ObservableProperty] public partial bool TaskbarLyricsShowTranslation { get; set; } = true;
+
+    [ObservableProperty] public partial string TaskbarSelectedLyricAlignment { get; set; } = LyricAlignmentLeft;
+
+    [ObservableProperty] public partial int TaskbarLyricsHorizontalOffset { get; set; }
+
+    [ObservableProperty] public partial string? TaskbarSelectedLyricFontFamily { get; set; }
+
+    [ObservableProperty] public partial int TaskbarLyricsFontSize { get; set; } = 17;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TaskbarUnplayedColorPreviewBrush))]
+    public partial string TaskbarUnplayedColorHexInput { get; set; } = DefaultTaskbarUnplayedColor;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TaskbarPlayedColorPreviewBrush))]
+    public partial string TaskbarPlayedColorHexInput { get; set; } = DefaultTaskbarPlayedColor;
+
+    [ObservableProperty] public partial bool EnableGlobalShortcuts { get; set; }
+
+    [ObservableProperty] public partial bool EnableNowPlayingVisualizer { get; set; }
+
+    [ObservableProperty] public partial bool UseLightweightNowPlayingLyricScroll { get; set; }
+
+    [ObservableProperty] public partial bool EnableSeamlessTransition { get; set; } = true;
+
+    [ObservableProperty] public partial bool EnableSurround { get; set; }
+
+    [ObservableProperty] public partial bool EnableVolumeNormalization { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOutputDeviceStatusVisible))]
+    public partial string OutputDeviceStatus { get; set; } = string.Empty;
+
+    [ObservableProperty] public partial bool IsCheckingUpdate { get; set; }
+
+    [ObservableProperty] public partial bool IsLoadingReleaseNotes { get; set; }
+
+    private bool _isInitializingLyricColorEditor;
+    private bool _isInitializingLyricFontEditor;
+    [ObservableProperty] public partial bool IsLoading { get; set; } = true;
+
+    [ObservableProperty] public partial string PlayPageLyricColorHexInput { get; set; } = "#FFFFFFFF";
+
+    [ObservableProperty] public partial double PlayPageLyricFontSize { get; set; } = 26;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NowPlayingBackgroundBlurRadiusDisplay))]
+    public partial double NowPlayingBackgroundBlurRadius { get; set; } = 40;
+
+    [ObservableProperty]
+    public partial NowPlayingBackgroundSource SelectedNowPlayingBackgroundSource { get; set; } =
+        NowPlayingBackgroundSource.Cover;
+
+    [ObservableProperty] public partial AudioOutputDevice? SelectedOutputDevice { get; set; }
+
+    [ObservableProperty] public partial string PlayPageSelectedLyricAlignment { get; set; } = LyricAlignmentCenter;
+
+    [ObservableProperty] public partial string PlayPageSelectedLyricColorMode { get; set; } = LyricColorModeDefault;
+
+    [ObservableProperty] public partial string PlayPageSelectedLyricColorTarget { get; set; } = LyricTargetMain;
+
+    [ObservableProperty] public partial string? PlayPageSelectedLyricFontFamily { get; set; }
+
+    [ObservableProperty] public partial string PlayPageSelectedLyricFontMode { get; set; } = LyricColorModeDefault;
+
+    [ObservableProperty] public partial string ReleaseNotesStatus { get; set; } = "正在加载最近版本发布说明...";
+
+    [ObservableProperty] public partial CloseBehavior SelectedCloseBehavior { get; set; }
+
+    [ObservableProperty] public partial string SelectedEQPreset { get; set; }
+
+    [ObservableProperty] public partial string SelectedSettingsSection { get; set; } = SettingsSectionGeneral;
+
+    [ObservableProperty] public partial string? UserAvatar { get; set; }
+
+    [ObservableProperty] public partial string UserId { get; set; }
+
+    [ObservableProperty] public partial string UserName { get; set; } = "加载中...";
+
+    [ObservableProperty] public partial string VipStatus { get; set; } = "未开通";
+
+    public SettingViewModel(PlayerViewModel player, UserClient userClient, LoginClient authClient,
+        ISukiDialogManager dialogManager, EqSettingsViewModel eqSettingsViewModel, KgSessionManager sessionManager,
+        IGlobalShortcutService globalShortcutService, IGitHubReleaseService releaseService,
+        IFolderPickerService folderPickerService, IUiPreferencesState uiPreferencesState,
+        IMainWindowService mainWindowService, IMessenger messenger, ITaskbarLyricsService taskbarLyricsService,
+        IDesktopLyricWindowService desktopLyricWindowService, QqCookieService qqCookieService)
+    {
+        _userClient = userClient;
+        _authClient = authClient;
+        _dialogManager = dialogManager;
+        _eqSettingsViewModel = eqSettingsViewModel;
+        _sessionManager = sessionManager;
+        _globalShortcutService = globalShortcutService;
+        _releaseService = releaseService;
+        _folderPickerService = folderPickerService;
+        _uiPreferencesState = uiPreferencesState;
+        _mainWindowService = mainWindowService;
+        _desktopLyricWindowService = desktopLyricWindowService;
+        _messenger = messenger;
+        _taskbarLyricsService = taskbarLyricsService;
+        _qqCookieService = qqCookieService;
+
+        Player = player;
+        EQPresetOptions = ["原声", "流行", "摇滚", "爵士", "古典", "嘻哈", "布鲁斯", "电子音乐", "金属", "自定义"];
+        LyricFontFamilyOptions = AppFontService.LoadSystemFontFamilies();
+        AppFontFamilyOptions = [AppFontService.SystemDefaultOption, .. LyricFontFamilyOptions];
+        UserId = _sessionManager.Session.UserId;
+        _isApplyingSettingsSnapshot = true;
+        try
+        {
+            SelectedCloseBehavior = SettingsManager.Settings.CloseBehavior;
+            AutoCheckUpdate = SettingsManager.Settings.AutoCheckUpdate;
+            SelectedAppFontFamily = AppFontService.FormatGlobalFontSelection(LyricFontFamilyOptions);
+#if KUGOU_LINUX
+            LinuxUseFullWindowDecorations = SettingsManager.Settings.LinuxUseFullWindowDecorations;
+#endif
+            UseCustomBackgroundImage = SettingsManager.Settings.UseCustomBackgroundImage;
+            CustomBackgroundImagePath = SettingsManager.Settings.CustomBackgroundImagePath;
+            CustomBackgroundImageOpacity = Math.Clamp(SettingsManager.Settings.CustomBackgroundImageOpacity, 0.1, 1.0);
+            EnableGlobalShortcuts = SettingsManager.Settings.GlobalShortcuts.EnableGlobalShortcuts;
+
+            var preset = SettingsManager.Settings.EQPreset;
+            SelectedEQPreset = Array.Exists(EQPresetOptions, x => x == preset) ? preset : "原声";
+
+            EnableSurround = SettingsManager.Settings.EnableSurround;
+            EnableVolumeNormalization = SettingsManager.Settings.EnableVolumeNormalization;
+            EnableSeamlessTransition = SettingsManager.Settings.EnableSeamlessTransition;
+            EnableNowPlayingVisualizer = SettingsManager.Settings.EnableNowPlayingVisualizer;
+            UseLightweightNowPlayingLyricScroll = SettingsManager.Settings.UseLightweightNowPlayingLyricScroll;
+            RefreshOutputDeviceOptions(SettingsManager.Settings.AudioOutputDeviceId);
+            DesktopLyricDoubleLineEnabled = SettingsManager.Settings.DesktopLyricDoubleLineEnabled;
+            DesktopSelectedLyricAlignment = FormatAlignment(SettingsManager.Settings.DesktopLyricAlignment);
+            DesktopSelectedLyricLayout =
+                SettingsManager.Settings.DesktopLyricLayoutMode == DesktopLyricLayoutMode.Vertical
+                    ? DesktopLyricLayoutVertical
+                    : DesktopLyricLayoutHorizontal;
+            EnableTaskbarLyrics = IsTaskbarLyricsSupported && SettingsManager.Settings.EnableTaskbarLyrics;
+            TaskbarLyricsShowTranslation = SettingsManager.Settings.TaskbarLyricsShowTranslation;
+            TaskbarLyricsHorizontalOffset =
+                Math.Clamp(SettingsManager.Settings.TaskbarLyricsHorizontalOffset, -200, 200);
+            TaskbarSelectedLyricAlignment =
+                SettingsManager.Settings.TaskbarLyricsAlignment == LyricAlignmentOption.Right
+                    ? LyricAlignmentRight
+                    : LyricAlignmentLeft;
+            TaskbarSelectedLyricFontFamily = NormalizeFontName(SettingsManager.Settings.TaskbarLyricsFontFamily)
+                                             ?? GetDefaultTaskbarFontFamily();
+            TaskbarLyricsFontSize = Math.Clamp(SettingsManager.Settings.TaskbarLyricsFontSize, 12, 24);
+            TaskbarUnplayedColorHexInput = NormalizeColorHex(SettingsManager.Settings.TaskbarLyricsUnplayedColor)
+                                           ?? DefaultTaskbarUnplayedColor;
+            TaskbarPlayedColorHexInput = NormalizeColorHex(SettingsManager.Settings.TaskbarLyricsPlayedColor)
+                                         ?? DefaultTaskbarPlayedColor;
+            LoadDesktopLyricColorEditorFromSettings();
+            LoadDesktopLyricFontEditorFromSettings();
+            LoadPlayPageLyricColorEditorFromSettings();
+            LoadPlayPageLyricFontEditorFromSettings();
+            LoadPlayPageLyricAlignmentFromSettings();
+            NowPlayingBackgroundBlurRadius =
+                Math.Clamp(SettingsManager.Settings.NowPlayingBackgroundBlurRadius, 0.0, 80.0);
+            SelectedNowPlayingBackgroundSource = SettingsManager.Settings.NowPlayingBackgroundSource;
+        }
+        finally
+        {
+            _isApplyingSettingsSnapshot = false;
+        }
+
+        ShortcutItems =
+        [
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.PlayPause, "播放/暂停"),
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.PreviousTrack, "上一首"),
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.NextTrack, "下一首"),
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.ShowMainWindow, "显示窗口"),
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.ToggleDesktopLyric, "显示桌面歌词"),
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.VolumeUp, "音量加"),
+            new GlobalShortcutItemViewModel(GlobalShortcutAction.VolumeDown, "音量减")
+        ];
+        RefreshShortcutTexts();
+        ApplyRegistrationResults(_globalShortcutService.CurrentResults);
+        _globalShortcutService.RegistrationChanged += ApplyRegistrationResults;
+    }
+
+    public string[] EQPresetOptions { get; }
+
+    public bool IsOutputDeviceSelectionVisible => !OperatingSystem.IsLinux();
+
+    public bool IsTaskbarLyricsSupported => _taskbarLyricsService.IsSupported;
+
+    public string[] SettingsSections { get; } =
+    [
+        SettingsSectionGeneral, SettingsSectionPlayback, SettingsSectionShortcuts, SettingsSectionLyrics,
+        SettingsSectionUpdate,
+        SettingsSectionAccount
+    ];
+
+    public string[] LyricColorTargetOptions { get; } = [LyricTargetMain, LyricTargetTranslation];
+    public string[] LyricSettingsScopeOptions { get; } = [LyricScopeDesktop, LyricScopePlayPage];
+    public string[] LyricAlignmentOptions { get; } = [LyricAlignmentCenter, LyricAlignmentLeft, LyricAlignmentRight];
+    public string[] DesktopLyricLayoutOptions { get; } = [DesktopLyricLayoutHorizontal, DesktopLyricLayoutVertical];
+    public string[] TaskbarLyricAlignmentOptions { get; } = [LyricAlignmentLeft, LyricAlignmentRight];
+    public int[] TaskbarLyricFontSizeOptions { get; } = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
+
+    public string[] LyricColorModeOptions { get; } = [LyricColorModeDefault, LyricColorModeCustom];
+    public string[] LyricFontModeOptions { get; } = [LyricColorModeDefault, LyricColorModeCustom];
+
+    public NowPlayingBackgroundSource[] NowPlayingBackgroundSourceOptions { get; } =
+    [
+        NowPlayingBackgroundSource.Cover,
+        NowPlayingBackgroundSource.CustomImage
+    ];
+
+    public string[] LyricColorPalette { get; } =
+    [
+        "#FFFFFFFF",
+        "#FFCCFFFFFF",
+        "#FFFFE082",
+        "#FFFFAB91",
+        "#FFA5D6A7",
+        "#FF80DEEA",
+        "#FF90CAF9",
+        "#FFB39DDB",
+        "#FFF48FB1",
+        "#FFFFF59D",
+        "#FFB0BEC5",
+        "#FFFFCDD2"
+    ];
+
+    public string[] LyricFontFamilyOptions { get; }
+    public string[] AppFontFamilyOptions { get; }
+    public GlobalShortcutItemViewModel[] ShortcutItems { get; }
+    public ObservableCollection<ReleaseNoteItemViewModel> RecentReleaseNotes { get; } = [];
+    public ObservableCollection<AudioOutputDevice> OutputDeviceOptions { get; } = [];
+
+    public PlayerViewModel Player { get; }
+
+    public override string DisplayName => "设置";
+    public override string Icon => "/Assets/gear-svgrepo-com.svg";
+    public string AppDisplayName => "KA Music";
+    public string AppVersion => $"v {GetCurrentVersion()}";
+
+    public CloseBehavior[] AvailableCloseBehaviors { get; } = Enum.GetValues<CloseBehavior>();
+
+    public bool IsDesktopLyricColorCustomMode => DesktopSelectedLyricColorMode == LyricColorModeCustom;
+    public bool IsDesktopLyricFontCustomMode => DesktopSelectedLyricFontMode == LyricColorModeCustom;
+    public bool IsPlayPageLyricColorCustomMode => PlayPageSelectedLyricColorMode == LyricColorModeCustom;
+    public bool IsPlayPageLyricFontCustomMode => PlayPageSelectedLyricFontMode == LyricColorModeCustom;
+    public bool IsGeneralSection => SelectedSettingsSection == SettingsSectionGeneral;
+    public bool IsPlaybackSection => SelectedSettingsSection == SettingsSectionPlayback;
+    public bool IsShortcutsSection => SelectedSettingsSection == SettingsSectionShortcuts;
+    public bool IsLyricsSection => SelectedSettingsSection == SettingsSectionLyrics;
+    public bool IsUpdateSection => SelectedSettingsSection == SettingsSectionUpdate;
+    public bool IsAccountSection => SelectedSettingsSection == SettingsSectionAccount;
+    public bool HasReleaseNotes => RecentReleaseNotes.Count > 0;
+    public bool IsReleaseNotesStatusVisible => IsLoadingReleaseNotes || !HasReleaseNotes;
+    public bool IsOutputDeviceStatusVisible => !string.IsNullOrWhiteSpace(OutputDeviceStatus);
+
+    public FontFamily AppFontPreviewFamily =>
+        SelectedAppFontFamily == AppFontService.SystemDefaultOption
+            ? FontFamily.Default
+            : new FontFamily(SelectedAppFontFamily);
+
+    public IBrush DesktopLyricColorPreviewBrush =>
+        new SolidColorBrush(ParseColorOrDefault(DesktopLyricColorHexInput, Colors.Transparent));
+
+    public IBrush PlayPageLyricColorPreviewBrush =>
+        new SolidColorBrush(ParseColorOrDefault(PlayPageLyricColorHexInput, Colors.Transparent));
+
+    public IBrush TaskbarUnplayedColorPreviewBrush =>
+        new SolidColorBrush(ParseColorOrDefault(TaskbarUnplayedColorHexInput, Colors.Transparent));
+
+    public IBrush TaskbarPlayedColorPreviewBrush =>
+        new SolidColorBrush(ParseColorOrDefault(TaskbarPlayedColorHexInput, Colors.Transparent));
+
+    public string PlayPageLyricFontSizeDisplay => $"{Math.Round(PlayPageLyricFontSize):0}pt";
+    public string NowPlayingBackgroundBlurRadiusDisplay => $"{Math.Round(NowPlayingBackgroundBlurRadius):0}px";
+    public string CustomBackgroundImageOpacityDisplay => $"{Math.Round(CustomBackgroundImageOpacity * 100):0}%";
+
+    public string CustomBackgroundImageStatus =>
+        string.IsNullOrWhiteSpace(CustomBackgroundImagePath)
+            ? "未选择图片"
+            : CustomBackgroundImagePath;
+
+    public bool IsDarkMode
+    {
+        get => SukiTheme.GetInstance().ActiveBaseTheme == ThemeVariant.Dark;
+        set
+        {
+            SukiTheme.GetInstance().ChangeBaseTheme(value ? ThemeVariant.Dark : ThemeVariant.Light);
+            SettingsManager.Settings.AppTheme = value ? AppSettings.ThemeDark : AppSettings.ThemeLight;
+            SettingsManager.Save();
+            OnPropertyChanged();
+        }
+    }
+
+#if KUGOU_LINUX
+    public bool IsLinuxWindowDecorationToggleVisible => true;
+#else
+    public bool IsLinuxWindowDecorationToggleVisible => false;
+#endif
+
+    public async Task LoadUserInfoAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            var userInfo = await _userClient.GetUserInfoAsync();
+            if (userInfo != null)
+            {
+                UserName = userInfo.Name;
+                UserAvatar = string.IsNullOrWhiteSpace(userInfo.Pic) ? null : userInfo.Pic;
+                UserId = _sessionManager.Session.UserId;
+            }
+
+            var vipInfo = await _userClient.GetVipInfoAsync();
+            if (vipInfo != null) VipStatus = vipInfo.IsVip is 1 ? "VIP会员" : "普通用户";
+        }
+        catch
+        {
+            UserName = "加载失败";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void UnlockDesktopLyric()
+    {
+        _desktopLyricWindowService.Unlock();
+    }
+
+    [RelayCommand]
+    private async Task Logout()
+    {
+        _authClient.LogOutAsync();
+        _qqCookieService.Clear();
+        _messenger.Send(new AuthStateChangedEvent(false));
+        await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdate()
+    {
+        if (IsCheckingUpdate) return;
+        IsCheckingUpdate = true;
+        CheckForUpdateRequested?.Invoke();
+        await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private async Task RefreshReleaseNotes()
+    {
+        await LoadReleaseNotesAsync(forceRefresh: true);
+    }
+
+    [RelayCommand]
+    private void OpenRepository()
+    {
+        OpenUrl(RepositoryUrl);
+    }
+
+    [RelayCommand]
+    private void OpenLogFolder()
+    {
+        var logDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "kugou",
+            "logs");
+
+        Directory.CreateDirectory(logDirectory);
+        OpenPath(logDirectory);
+    }
+
+    [RelayCommand]
+    private void PickDesktopLyricPaletteColor(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        DesktopLyricColorHexInput = hex;
+        ApplyDesktopLyricColorHex();
+    }
+
+    [RelayCommand]
+    private void ApplyDesktopLyricColorHex()
+    {
+        var normalized = NormalizeColorHex(DesktopLyricColorHexInput);
+        if (normalized == null) return;
+
+        if (!IsDesktopLyricColorCustomMode)
+        {
+            _isInitializingLyricColorEditor = true;
+            DesktopSelectedLyricColorMode = LyricColorModeCustom;
+            _isInitializingLyricColorEditor = false;
+            SetDesktopTargetCustomEnabled(true);
+            OnPropertyChanged(nameof(IsDesktopLyricColorCustomMode));
+        }
+
+        SetDesktopTargetCustomColor(normalized);
+        DesktopLyricColorHexInput = normalized;
+        OnPropertyChanged(nameof(DesktopLyricColorPreviewBrush));
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    [RelayCommand]
+    private void PickPlayPageLyricPaletteColor(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        PlayPageLyricColorHexInput = hex;
+        ApplyPlayPageLyricColorHex();
+    }
+
+    [RelayCommand]
+    private void ApplyPlayPageLyricColorHex()
+    {
+        var normalized = NormalizeColorHex(PlayPageLyricColorHexInput);
+        if (normalized == null) return;
+
+        if (!IsPlayPageLyricColorCustomMode)
+        {
+            _isInitializingLyricColorEditor = true;
+            PlayPageSelectedLyricColorMode = LyricColorModeCustom;
+            _isInitializingLyricColorEditor = false;
+            SetPlayPageTargetCustomEnabled(true);
+            OnPropertyChanged(nameof(IsPlayPageLyricColorCustomMode));
+        }
+
+        SetPlayPageTargetCustomColor(normalized);
+        PlayPageLyricColorHexInput = normalized;
+        OnPropertyChanged(nameof(PlayPageLyricColorPreviewBrush));
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    [RelayCommand]
+    private void ApplyTaskbarUnplayedColorHex()
+    {
+        var normalized = NormalizeColorHex(TaskbarUnplayedColorHexInput);
+        if (normalized == null) return;
+
+        TaskbarUnplayedColorHexInput = normalized;
+        SettingsManager.Settings.TaskbarLyricsUnplayedColor = normalized;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    [RelayCommand]
+    private void ApplyTaskbarPlayedColorHex()
+    {
+        var normalized = NormalizeColorHex(TaskbarPlayedColorHexInput);
+        if (normalized == null) return;
+
+        TaskbarPlayedColorHexInput = normalized;
+        SettingsManager.Settings.TaskbarLyricsPlayedColor = normalized;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    [RelayCommand]
+    private void ResetTaskbarLyricsAppearance()
+    {
+        var fontFamily = GetDefaultTaskbarFontFamily();
+        _isApplyingSettingsSnapshot = true;
+        try
+        {
+            TaskbarSelectedLyricFontFamily = fontFamily;
+            TaskbarLyricsFontSize = 17;
+            TaskbarLyricsHorizontalOffset = 0;
+            TaskbarUnplayedColorHexInput = DefaultTaskbarUnplayedColor;
+            TaskbarPlayedColorHexInput = DefaultTaskbarPlayedColor;
+        }
+        finally
+        {
+            _isApplyingSettingsSnapshot = false;
+        }
+
+        SettingsManager.Settings.TaskbarLyricsFontFamily = fontFamily;
+        SettingsManager.Settings.TaskbarLyricsFontSize = 17;
+        SettingsManager.Settings.TaskbarLyricsHorizontalOffset = 0;
+        SettingsManager.Settings.TaskbarLyricsUnplayedColor = DefaultTaskbarUnplayedColor;
+        SettingsManager.Settings.TaskbarLyricsPlayedColor = DefaultTaskbarPlayedColor;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    public event Action? CheckForUpdateRequested;
+
+    [RelayCommand]
+    private void SwitchSettingsSection(string? section)
+    {
+        if (string.IsNullOrWhiteSpace(section)) return;
+        if (SettingsSections.Contains(section)) SelectedSettingsSection = section;
+    }
+
+    partial void OnSelectedCloseBehaviorChanged(CloseBehavior value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.CloseBehavior = value;
+        SettingsManager.Save();
+    }
+
+    partial void OnAutoCheckUpdateChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.AutoCheckUpdate = value;
+        SettingsManager.Save();
+    }
+
+#if KUGOU_LINUX
+    partial void OnLinuxUseFullWindowDecorationsChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.LinuxUseFullWindowDecorations = value;
+        SettingsManager.Save();
+        _mainWindowService.ApplyLinuxWindowDecorations(value);
+    }
+#endif
+
+    partial void OnUseCustomBackgroundImageChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.UseCustomBackgroundImage = value;
+        SaveAndNotifyBackgroundSettings();
+    }
+
+    partial void OnCustomBackgroundImageOpacityChanged(double value)
+    {
+        OnPropertyChanged(nameof(CustomBackgroundImageOpacityDisplay));
+        if (_isApplyingSettingsSnapshot) return;
+
+        var clamped = Math.Clamp(value, 0.1, 1.0);
+        if (Math.Abs(clamped - value) > double.Epsilon)
+        {
+            CustomBackgroundImageOpacity = clamped;
+            return;
+        }
+
+        SettingsManager.Settings.CustomBackgroundImageOpacity = clamped;
+        SaveAndNotifyBackgroundSettings();
+    }
+
+    partial void OnEnableGlobalShortcutsChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        if (ShortcutItems == null)
+            return;
+
+        var candidate = BuildShortcutSettingsSnapshot();
+        candidate.EnableGlobalShortcuts = value;
+        var applyResult = _globalShortcutService.TryApplySettings(candidate);
+        if (!applyResult.Success)
+        {
+            EnableGlobalShortcuts = !value;
+            return;
+        }
+
+        SettingsManager.Settings.GlobalShortcuts = candidate;
+        SettingsManager.Save();
+        ApplyRegistrationResults(applyResult.Results);
+    }
+
+    partial void OnSelectedEQPresetChanged(string value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.EQPreset = value;
+        SettingsManager.Save();
+        Player.UpdateAudioEffects(value, EnableSurround);
+    }
+
+    partial void OnEnableSurroundChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.EnableSurround = value;
+        SettingsManager.Save();
+        Player.UpdateAudioEffects(SelectedEQPreset, value);
+    }
+
+    partial void OnEnableVolumeNormalizationChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.EnableVolumeNormalization = value;
+        SettingsManager.Save();
+        Player.SetVolumeNormalizationEnabled(value);
+    }
+
+    partial void OnEnableSeamlessTransitionChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.EnableSeamlessTransition = value;
+        SettingsManager.Save();
+        Player.SetSeamlessTransitionEnabled(value);
+    }
+
+    partial void OnEnableNowPlayingVisualizerChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.EnableNowPlayingVisualizer = value;
+        SettingsManager.Save();
+        Player.SetNowPlayingVisualizerEnabled(value);
+    }
+
+    partial void OnSelectedOutputDeviceChanged(AudioOutputDevice? value)
+    {
+        if (_isApplyingSettingsSnapshot || value == null) return;
+
+        OutputDeviceStatus = string.Empty;
+        if (Player.SetOutputDevice(value.DeviceId))
+        {
+            _lastAppliedOutputDeviceId = value.DeviceId;
+            SettingsManager.Settings.AudioOutputDeviceId = value.DeviceId;
+            SettingsManager.Save();
+            return;
+        }
+
+        OutputDeviceStatus = "输出设备切换失败，已尝试恢复到系统默认设备。";
+        if (Player.SetOutputDevice(AppSettings.SystemDefaultAudioOutputDeviceId))
+        {
+            _lastAppliedOutputDeviceId = AppSettings.SystemDefaultAudioOutputDeviceId;
+            SettingsManager.Settings.AudioOutputDeviceId = AppSettings.SystemDefaultAudioOutputDeviceId;
+            SettingsManager.Save();
+        }
+
+        SelectOutputDeviceSilently(_lastAppliedOutputDeviceId);
+    }
+
+    partial void OnUseLightweightNowPlayingLyricScrollChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.UseLightweightNowPlayingLyricScroll = value;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnDesktopLyricDoubleLineEnabledChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.DesktopLyricDoubleLineEnabled = value;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnEnableTaskbarLyricsChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        if (!IsTaskbarLyricsSupported)
+        {
+            EnableTaskbarLyrics = false;
+            return;
+        }
+
+        _taskbarLyricsService.SetEnabled(value);
+        SettingsManager.Settings.EnableTaskbarLyrics = _taskbarLyricsService.IsEnabled;
+        if (value != _taskbarLyricsService.IsEnabled)
+            EnableTaskbarLyrics = _taskbarLyricsService.IsEnabled;
+        SettingsManager.Save();
+    }
+
+    partial void OnTaskbarLyricsShowTranslationChanged(bool value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.TaskbarLyricsShowTranslation = value;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    partial void OnTaskbarLyricsHorizontalOffsetChanged(int value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        var normalized = Math.Clamp(value, -200, 200);
+        if (normalized != value)
+        {
+            TaskbarLyricsHorizontalOffset = normalized;
+            return;
+        }
+
+        SettingsManager.Settings.TaskbarLyricsHorizontalOffset = normalized;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    partial void OnTaskbarSelectedLyricAlignmentChanged(string value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.TaskbarLyricsAlignment = value == LyricAlignmentRight
+            ? LyricAlignmentOption.Right
+            : LyricAlignmentOption.Left;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    partial void OnTaskbarSelectedLyricFontFamilyChanged(string? value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        var normalized = NormalizeFontName(value);
+        if (normalized == null) return;
+
+        SettingsManager.Settings.TaskbarLyricsFontFamily = normalized;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    partial void OnTaskbarLyricsFontSizeChanged(int value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        var normalized = Math.Clamp(value, 12, 24);
+        if (normalized != value)
+        {
+            TaskbarLyricsFontSize = normalized;
+            return;
+        }
+
+        SettingsManager.Settings.TaskbarLyricsFontSize = normalized;
+        SettingsManager.Save();
+        _taskbarLyricsService.Refresh();
+    }
+
+    partial void OnDesktopSelectedLyricColorTargetChanged(string value)
+    {
+        LoadDesktopLyricColorEditorFromSettings();
+    }
+
+    partial void OnDesktopSelectedLyricAlignmentChanged(string value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.DesktopLyricAlignment = ParseAlignment(value);
+        SettingsManager.Settings.HasDesktopLyricAlignmentPreference = true;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnDesktopSelectedLyricLayoutChanged(string value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.DesktopLyricLayoutMode = value == DesktopLyricLayoutVertical
+            ? DesktopLyricLayoutMode.Vertical
+            : DesktopLyricLayoutMode.Horizontal;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnPlayPageSelectedLyricColorTargetChanged(string value)
+    {
+        LoadPlayPageLyricColorEditorFromSettings();
+    }
+
+    partial void OnDesktopSelectedLyricColorModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsDesktopLyricColorCustomMode));
+        if (_isInitializingLyricColorEditor) return;
+
+        SetDesktopTargetCustomEnabled(value == LyricColorModeCustom);
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnPlayPageSelectedLyricColorModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsPlayPageLyricColorCustomMode));
+        if (_isInitializingLyricColorEditor) return;
+
+        SetPlayPageTargetCustomEnabled(value == LyricColorModeCustom);
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnDesktopLyricColorHexInputChanged(string value)
+    {
+        OnPropertyChanged(nameof(DesktopLyricColorPreviewBrush));
+    }
+
+    partial void OnPlayPageLyricColorHexInputChanged(string value)
+    {
+        OnPropertyChanged(nameof(PlayPageLyricColorPreviewBrush));
+    }
+
+    partial void OnDesktopSelectedLyricFontModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsDesktopLyricFontCustomMode));
+        if (_isInitializingLyricFontEditor) return;
+
+        SettingsManager.Settings.DesktopLyricUseCustomFont = value == LyricColorModeCustom;
+        if (SettingsManager.Settings.DesktopLyricUseCustomFont &&
+            !string.IsNullOrWhiteSpace(DesktopSelectedLyricFontFamily))
+            SettingsManager.Settings.DesktopLyricCustomFontFamily = DesktopSelectedLyricFontFamily;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnPlayPageSelectedLyricFontModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsPlayPageLyricFontCustomMode));
+        if (_isInitializingLyricFontEditor) return;
+
+        SettingsManager.Settings.PlayPageLyricUseCustomFont = value == LyricColorModeCustom;
+        if (SettingsManager.Settings.PlayPageLyricUseCustomFont &&
+            !string.IsNullOrWhiteSpace(PlayPageSelectedLyricFontFamily))
+            SettingsManager.Settings.PlayPageLyricCustomFontFamily = PlayPageSelectedLyricFontFamily;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnDesktopSelectedLyricFontFamilyChanged(string? value)
+    {
+        if (_isInitializingLyricFontEditor) return;
+
+        var normalized = NormalizeFontName(value);
+        if (normalized == null)
+            return;
+
+        if (!string.Equals(value, normalized, StringComparison.Ordinal))
+        {
+            _isInitializingLyricFontEditor = true;
+            DesktopSelectedLyricFontFamily = normalized;
+            _isInitializingLyricFontEditor = false;
+        }
+
+        SettingsManager.Settings.DesktopLyricCustomFontFamily = normalized;
+        SettingsManager.Settings.DesktopLyricUseCustomFont = DesktopSelectedLyricFontMode == LyricColorModeCustom;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnPlayPageSelectedLyricFontFamilyChanged(string? value)
+    {
+        if (_isInitializingLyricFontEditor) return;
+
+        var normalized = NormalizeFontName(value);
+        if (normalized == null)
+            return;
+
+        if (!string.Equals(value, normalized, StringComparison.Ordinal))
+        {
+            _isInitializingLyricFontEditor = true;
+            PlayPageSelectedLyricFontFamily = normalized;
+            _isInitializingLyricFontEditor = false;
+        }
+
+        SettingsManager.Settings.PlayPageLyricCustomFontFamily = normalized;
+        SettingsManager.Settings.PlayPageLyricUseCustomFont = PlayPageSelectedLyricFontMode == LyricColorModeCustom;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnPlayPageSelectedLyricAlignmentChanged(string value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.PlayPageLyricAlignment = ParseAlignment(value);
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnPlayPageLyricFontSizeChanged(double value)
+    {
+        if (_isApplyingSettingsSnapshot)
+        {
+            OnPropertyChanged(nameof(PlayPageLyricFontSizeDisplay));
+            return;
+        }
+
+        var clamped = Math.Clamp(value, 18, 42);
+        if (Math.Abs(clamped - value) > double.Epsilon)
+        {
+            PlayPageLyricFontSize = clamped;
+            return;
+        }
+
+        SettingsManager.Settings.PlayPageLyricFontSize = clamped;
+        SettingsManager.Save();
+        OnPropertyChanged(nameof(PlayPageLyricFontSizeDisplay));
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnNowPlayingBackgroundBlurRadiusChanged(double value)
+    {
+        OnPropertyChanged(nameof(NowPlayingBackgroundBlurRadiusDisplay));
+        if (_isApplyingSettingsSnapshot) return;
+
+        var clamped = Math.Clamp(value, 0.0, 80.0);
+        if (Math.Abs(clamped - value) > double.Epsilon)
+        {
+            NowPlayingBackgroundBlurRadius = clamped;
+            return;
+        }
+
+        SettingsManager.Settings.NowPlayingBackgroundBlurRadius = clamped;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    partial void OnSelectedNowPlayingBackgroundSourceChanged(NowPlayingBackgroundSource value)
+    {
+        if (_isApplyingSettingsSnapshot) return;
+
+        SettingsManager.Settings.NowPlayingBackgroundSource = value;
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    public void SetCheckingUpdateState(bool isChecking)
+    {
+        IsCheckingUpdate = isChecking;
+    }
+
+    [RelayCommand]
+    private void RefreshOutputDevices()
+    {
+        var preferredDeviceId = SelectedOutputDevice?.DeviceId ?? SettingsManager.Settings.AudioOutputDeviceId;
+        RefreshOutputDeviceOptions(preferredDeviceId);
+        if (SelectedOutputDevice?.DeviceId != preferredDeviceId)
+        {
+            OutputDeviceStatus = "原输出设备不可用，已回到系统默认设备。";
+            SettingsManager.Settings.AudioOutputDeviceId = AppSettings.SystemDefaultAudioOutputDeviceId;
+            SettingsManager.Save();
+            ApplySavedOutputDevice();
+            return;
+        }
+
+        OutputDeviceStatus = "输出设备列表已刷新。";
+    }
+
+    [RelayCommand]
+    private void OpenEqSettings()
+    {
+        var eqSettings = new EqSettingsView
+        {
+            DataContext = _eqSettingsViewModel
+        };
+
+        _dialogManager.CreateDialog()
+            .WithContent(eqSettings)
+            .WithActionButton("确定", _ => { }, true)
+            .TryShow();
+    }
+
+    [RelayCommand]
+    private async Task PickCustomBackgroundImage()
+    {
+        var path = await _folderPickerService.PickSingleWallpaperFileAsync("选择自定义背景（图片/视频）");
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        // 视频壁纸大小限制：超过 20MB 不可用
+        if (VideoWallpaperService.IsVideoWallpaperFile(path))
+        {
+            var length = new FileInfo(path).Length;
+            if (length > VideoWallpaperService.MaxVideoWallpaperBytes)
+            {
+                _dialogManager.CreateDialog()
+                    .WithTitle("视频壁纸过大")
+                    .WithContent($"所选视频大小为 {length / 1024.0 / 1024.0:F1} MB，超过 100MB 上限，无法用作壁纸。\n请选择 100MB 以内的视频文件。")
+                    .WithActionButton("知道了", _ => { }, true, "Standard")
+                    .TryShow();
+                return;
+            }
+        }
+
+        CustomBackgroundImagePath = path;
+        UseCustomBackgroundImage = true;
+        SettingsManager.Settings.CustomBackgroundImagePath = path;
+        SettingsManager.Settings.UseCustomBackgroundImage = true;
+        SaveAndNotifyBackgroundSettings();
+    }
+
+    [RelayCommand]
+    private void ClearCustomBackgroundImage()
+    {
+        CustomBackgroundImagePath = null;
+        UseCustomBackgroundImage = false;
+        SettingsManager.Settings.CustomBackgroundImagePath = null;
+        SettingsManager.Settings.UseCustomBackgroundImage = false;
+        SaveAndNotifyBackgroundSettings();
+    }
+
+    [RelayCommand]
+    private void ResetAllSettings()
+    {
+        _dialogManager.CreateDialog()
+            .WithTitle("重置设置")
+            .WithContent("确认要一键重置所有设置吗？这会将设置恢复为默认值，但不会清除本地音乐记录。")
+            .WithActionButton("取消", _ => { }, true, "Standard")
+            .WithActionButton("确认", _ =>
+            {
+                SettingsManager.ResetSettings();
+                ApplySettingsSnapshot();
+            }, true)
+            .TryShow();
+    }
+
+    private void ApplySettingsSnapshot()
+    {
+        StopRecording(true);
+
+        _isApplyingSettingsSnapshot = true;
+        try
+        {
+            SelectedCloseBehavior = SettingsManager.Settings.CloseBehavior;
+            AutoCheckUpdate = SettingsManager.Settings.AutoCheckUpdate;
+            SelectedAppFontFamily = AppFontService.FormatGlobalFontSelection(LyricFontFamilyOptions);
+            UseCustomBackgroundImage = SettingsManager.Settings.UseCustomBackgroundImage;
+            CustomBackgroundImagePath = SettingsManager.Settings.CustomBackgroundImagePath;
+            CustomBackgroundImageOpacity = Math.Clamp(SettingsManager.Settings.CustomBackgroundImageOpacity, 0.1, 1.0);
+            EnableGlobalShortcuts = SettingsManager.Settings.GlobalShortcuts.EnableGlobalShortcuts;
+            SelectedEQPreset = Array.Exists(EQPresetOptions, x => x == SettingsManager.Settings.EQPreset)
+                ? SettingsManager.Settings.EQPreset
+                : "原声";
+            EnableSurround = SettingsManager.Settings.EnableSurround;
+            EnableVolumeNormalization = SettingsManager.Settings.EnableVolumeNormalization;
+            EnableSeamlessTransition = SettingsManager.Settings.EnableSeamlessTransition;
+            EnableNowPlayingVisualizer = SettingsManager.Settings.EnableNowPlayingVisualizer;
+            UseLightweightNowPlayingLyricScroll = SettingsManager.Settings.UseLightweightNowPlayingLyricScroll;
+            RefreshOutputDeviceOptions(SettingsManager.Settings.AudioOutputDeviceId);
+            DesktopLyricDoubleLineEnabled = SettingsManager.Settings.DesktopLyricDoubleLineEnabled;
+
+            LoadDesktopLyricColorEditorFromSettings();
+            LoadDesktopLyricFontEditorFromSettings();
+            LoadPlayPageLyricColorEditorFromSettings();
+            LoadPlayPageLyricFontEditorFromSettings();
+            LoadPlayPageLyricAlignmentFromSettings();
+            NowPlayingBackgroundBlurRadius =
+                Math.Clamp(SettingsManager.Settings.NowPlayingBackgroundBlurRadius, 0.0, 80.0);
+            SelectedNowPlayingBackgroundSource = SettingsManager.Settings.NowPlayingBackgroundSource;
+        }
+        finally
+        {
+            _isApplyingSettingsSnapshot = false;
+        }
+
+        Player.MusicQuality = SettingsManager.Settings.MusicQuality;
+        Player.UpdateAudioEffects(SelectedEQPreset, EnableSurround);
+        Player.SetVolumeNormalizationEnabled(EnableVolumeNormalization);
+        Player.SetSeamlessTransitionEnabled(EnableSeamlessTransition);
+        Player.SetNowPlayingVisualizerEnabled(EnableNowPlayingVisualizer);
+        ApplySavedOutputDevice();
+        _eqSettingsViewModel.ReloadFromSettings();
+
+        var shortcutApplyResult = _globalShortcutService.TryApplySettings(SettingsManager.Settings.GlobalShortcuts);
+        RefreshShortcutTexts();
+        ApplyRegistrationResults(shortcutApplyResult.Results);
+
+        NotifyUiPreferencesChanged();
+        OnPropertyChanged(nameof(IsDarkMode));
+    }
+
+    private void SaveAndNotifyBackgroundSettings()
+    {
+        SettingsManager.Save();
+        NotifyUiPreferencesChanged();
+    }
+
+    private void RefreshOutputDeviceOptions(int preferredDeviceId)
+    {
+        OutputDeviceOptions.Clear();
+        foreach (var device in SimpleAudioPlayer.GetOutputDevices())
+        {
+            OutputDeviceOptions.Add(device);
+        }
+
+        var selected = OutputDeviceOptions.AsValueEnumerable().FirstOrDefault(x => x.DeviceId == preferredDeviceId) ??
+                       OutputDeviceOptions.AsValueEnumerable().FirstOrDefault(x =>
+                           x.DeviceId == AppSettings.SystemDefaultAudioOutputDeviceId) ??
+                       AudioOutputDevice.SystemDefault;
+        SelectOutputDeviceSilently(selected.DeviceId);
+    }
+
+    private void SelectOutputDeviceSilently(int deviceId)
+    {
+        var selected = OutputDeviceOptions.AsValueEnumerable().FirstOrDefault(x => x.DeviceId == deviceId) ??
+                       OutputDeviceOptions.AsValueEnumerable().FirstOrDefault(x =>
+                           x.DeviceId == AppSettings.SystemDefaultAudioOutputDeviceId) ??
+                       AudioOutputDevice.SystemDefault;
+
+        var wasApplyingSettingsSnapshot = _isApplyingSettingsSnapshot;
+        _isApplyingSettingsSnapshot = true;
+        try
+        {
+            SelectedOutputDevice = selected;
+        }
+        finally
+        {
+            _isApplyingSettingsSnapshot = wasApplyingSettingsSnapshot;
+        }
+    }
+
+    private void ApplySavedOutputDevice()
+    {
+        var deviceId = SettingsManager.Settings.AudioOutputDeviceId;
+        if (Player.SetOutputDevice(deviceId))
+        {
+            _lastAppliedOutputDeviceId = deviceId;
+            OutputDeviceStatus = string.Empty;
+            SelectOutputDeviceSilently(deviceId);
+            return;
+        }
+
+        _lastAppliedOutputDeviceId = AppSettings.SystemDefaultAudioOutputDeviceId;
+        SettingsManager.Settings.AudioOutputDeviceId = AppSettings.SystemDefaultAudioOutputDeviceId;
+        SettingsManager.Save();
+        Player.SetOutputDevice(AppSettings.SystemDefaultAudioOutputDeviceId);
+        OutputDeviceStatus = "保存的输出设备不可用，已回到系统默认设备。";
+        SelectOutputDeviceSilently(AppSettings.SystemDefaultAudioOutputDeviceId);
+    }
+
+    private void LoadDesktopLyricColorEditorFromSettings()
+    {
+        _isInitializingLyricColorEditor = true;
+
+        if (IsEditingDesktopMainLyricColor())
+        {
+            DesktopSelectedLyricColorMode = SettingsManager.Settings.DesktopLyricUseCustomMainColor
+                ? LyricColorModeCustom
+                : LyricColorModeDefault;
+            DesktopLyricColorHexInput = SettingsManager.Settings.DesktopLyricCustomMainColor;
+        }
+        else
+        {
+            DesktopSelectedLyricColorMode = SettingsManager.Settings.DesktopLyricUseCustomTranslationColor
+                ? LyricColorModeCustom
+                : LyricColorModeDefault;
+            DesktopLyricColorHexInput = SettingsManager.Settings.DesktopLyricCustomTranslationColor;
+        }
+
+        _isInitializingLyricColorEditor = false;
+        OnPropertyChanged(nameof(IsDesktopLyricColorCustomMode));
+        OnPropertyChanged(nameof(DesktopLyricColorPreviewBrush));
+    }
+
+    private void LoadPlayPageLyricColorEditorFromSettings()
+    {
+        _isInitializingLyricColorEditor = true;
+
+        if (IsEditingPlayPageMainLyricColor())
+        {
+            PlayPageSelectedLyricColorMode = SettingsManager.Settings.PlayPageLyricUseCustomMainColor
+                ? LyricColorModeCustom
+                : LyricColorModeDefault;
+            PlayPageLyricColorHexInput = SettingsManager.Settings.PlayPageLyricCustomMainColor;
+        }
+        else
+        {
+            PlayPageSelectedLyricColorMode = SettingsManager.Settings.PlayPageLyricUseCustomTranslationColor
+                ? LyricColorModeCustom
+                : LyricColorModeDefault;
+            PlayPageLyricColorHexInput = SettingsManager.Settings.PlayPageLyricCustomTranslationColor;
+        }
+
+        _isInitializingLyricColorEditor = false;
+        OnPropertyChanged(nameof(IsPlayPageLyricColorCustomMode));
+        OnPropertyChanged(nameof(PlayPageLyricColorPreviewBrush));
+    }
+
+    private void LoadDesktopLyricFontEditorFromSettings()
+    {
+        _isInitializingLyricFontEditor = true;
+
+        DesktopSelectedLyricFontMode = SettingsManager.Settings.DesktopLyricUseCustomFont
+            ? LyricColorModeCustom
+            : LyricColorModeDefault;
+        DesktopSelectedLyricFontFamily = NormalizeFontName(SettingsManager.Settings.DesktopLyricCustomFontFamily);
+
+        _isInitializingLyricFontEditor = false;
+        OnPropertyChanged(nameof(IsDesktopLyricFontCustomMode));
+    }
+
+    private void LoadPlayPageLyricFontEditorFromSettings()
+    {
+        _isInitializingLyricFontEditor = true;
+
+        PlayPageSelectedLyricFontMode = SettingsManager.Settings.PlayPageLyricUseCustomFont
+            ? LyricColorModeCustom
+            : LyricColorModeDefault;
+        PlayPageSelectedLyricFontFamily = NormalizeFontName(SettingsManager.Settings.PlayPageLyricCustomFontFamily);
+
+        _isInitializingLyricFontEditor = false;
+        OnPropertyChanged(nameof(IsPlayPageLyricFontCustomMode));
+    }
+
+    private void LoadPlayPageLyricAlignmentFromSettings()
+    {
+        PlayPageSelectedLyricAlignment = FormatAlignment(SettingsManager.Settings.PlayPageLyricAlignment);
+        PlayPageLyricFontSize = Math.Clamp(SettingsManager.Settings.PlayPageLyricFontSize, 18, 42);
+    }
+
+    private bool IsEditingDesktopMainLyricColor()
+    {
+        return DesktopSelectedLyricColorTarget == LyricTargetMain;
+    }
+
+    private bool IsEditingPlayPageMainLyricColor()
+    {
+        return PlayPageSelectedLyricColorTarget == LyricTargetMain;
+    }
+
+    private void SetDesktopTargetCustomEnabled(bool enabled)
+    {
+        if (IsEditingDesktopMainLyricColor())
+            SettingsManager.Settings.DesktopLyricUseCustomMainColor = enabled;
+        else
+            SettingsManager.Settings.DesktopLyricUseCustomTranslationColor = enabled;
+    }
+
+    private void SetPlayPageTargetCustomEnabled(bool enabled)
+    {
+        if (IsEditingPlayPageMainLyricColor())
+            SettingsManager.Settings.PlayPageLyricUseCustomMainColor = enabled;
+        else
+            SettingsManager.Settings.PlayPageLyricUseCustomTranslationColor = enabled;
+    }
+
+    private void SetDesktopTargetCustomColor(string normalizedHex)
+    {
+        if (IsEditingDesktopMainLyricColor())
+            SettingsManager.Settings.DesktopLyricCustomMainColor = normalizedHex;
+        else
+            SettingsManager.Settings.DesktopLyricCustomTranslationColor = normalizedHex;
+    }
+
+    private void SetPlayPageTargetCustomColor(string normalizedHex)
+    {
+        if (IsEditingPlayPageMainLyricColor())
+            SettingsManager.Settings.PlayPageLyricCustomMainColor = normalizedHex;
+        else
+            SettingsManager.Settings.PlayPageLyricCustomTranslationColor = normalizedHex;
+    }
+
+    private static string? NormalizeColorHex(string? colorText)
+    {
+        if (string.IsNullOrWhiteSpace(colorText)) return null;
+        return Color.TryParse(colorText.Trim(), out var parsed) ? parsed.ToString() : null;
+    }
+
+    private string? NormalizeFontName(string? fontName)
+    {
+        return AppFontService.NormalizeSystemFontName(fontName, LyricFontFamilyOptions);
+    }
+
+    private static Color ParseColorOrDefault(string? colorText, Color fallback)
+    {
+        return Color.TryParse(colorText, out var parsed) ? parsed : fallback;
+    }
+
+    private void NotifyUiPreferencesChanged()
+    {
+        _uiPreferencesState.RefreshFromSettings();
+    }
+
+    private static LyricAlignmentOption ParseAlignment(string? alignment)
+    {
+        return alignment switch
+        {
+            LyricAlignmentLeft => LyricAlignmentOption.Left,
+            LyricAlignmentRight => LyricAlignmentOption.Right,
+            _ => LyricAlignmentOption.Center
+        };
+    }
+
+    private static string FormatAlignment(LyricAlignmentOption alignment)
+    {
+        return alignment switch
+        {
+            LyricAlignmentOption.Left => LyricAlignmentLeft,
+            LyricAlignmentOption.Right => LyricAlignmentRight,
+            _ => LyricAlignmentCenter
+        };
+    }
+
+    private string GetDefaultTaskbarFontFamily()
+    {
+        return NormalizeFontName(DefaultTaskbarFontFamily)
+               ?? (LyricFontFamilyOptions.Length > 0 ? LyricFontFamilyOptions[0] : DefaultTaskbarFontFamily);
+    }
+
+    partial void OnSelectedSettingsSectionChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsGeneralSection));
+        OnPropertyChanged(nameof(IsPlaybackSection));
+        OnPropertyChanged(nameof(IsShortcutsSection));
+        OnPropertyChanged(nameof(IsLyricsSection));
+        OnPropertyChanged(nameof(IsUpdateSection));
+        OnPropertyChanged(nameof(IsAccountSection));
+
+        if (value == SettingsSectionUpdate)
+            _ = LoadReleaseNotesAsync();
+    }
+
+    partial void OnIsLoadingReleaseNotesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsReleaseNotesStatusVisible));
+    }
+
+    partial void OnSelectedAppFontFamilyChanged(string value)
+    {
+        OnPropertyChanged(nameof(AppFontPreviewFamily));
+
+        if (_isApplyingSettingsSnapshot)
+            return;
+
+        var normalized = AppFontService.NormalizeGlobalFontSelection(value, LyricFontFamilyOptions);
+        var formatted = string.IsNullOrWhiteSpace(normalized)
+            ? AppFontService.SystemDefaultOption
+            : normalized;
+
+        if (!string.Equals(value, formatted, StringComparison.Ordinal))
+        {
+            _isApplyingSettingsSnapshot = true;
+            SelectedAppFontFamily = formatted;
+            _isApplyingSettingsSnapshot = false;
+            return;
+        }
+
+        SettingsManager.Settings.GlobalFontFamily = normalized;
+        SettingsManager.Save();
+        AppFontService.ApplyGlobalFont();
+        NotifyUiPreferencesChanged();
+    }
+
+    private async Task LoadReleaseNotesAsync(bool forceRefresh = false)
+    {
+        if (IsLoadingReleaseNotes)
+            return;
+
+        if (!forceRefresh && RecentReleaseNotes.Count > 0)
+            return;
+
+        IsLoadingReleaseNotes = true;
+        ReleaseNotesStatus = "正在加载最近版本发布说明...";
+
+        try
+        {
+            var releases = await _releaseService.GetRecentReleasesAsync(3);
+            RecentReleaseNotes.Clear();
+            foreach (var release in releases)
+                RecentReleaseNotes.Add(new ReleaseNoteItemViewModel(release));
+
+            ReleaseNotesStatus = RecentReleaseNotes.Count == 0
+                ? "暂时没有获取到发布说明，可前往 Releases 页面查看。"
+                : string.Empty;
+        }
+        finally
+        {
+            IsLoadingReleaseNotes = false;
+            OnPropertyChanged(nameof(HasReleaseNotes));
+            OnPropertyChanged(nameof(IsReleaseNotesStatusVisible));
+        }
+    }
+
+    private static string GetCurrentVersion()
+    {
+        var version = Assembly.GetEntryAssembly()?.GetName().Version
+                      ?? Assembly.GetExecutingAssembly().GetName().Version;
+
+        return version == null
+            ? "未知"
+            : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    private static void OpenUrl(string url)
+    {
+        OpenPath(url);
+    }
+
+    private static void OpenPath(string path)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Browser launch is a convenience action; keep this page usable if the OS blocks it.
+        }
+    }
+
+    [RelayCommand]
+    private void BeginShortcutRecording(GlobalShortcutItemViewModel? item)
+    {
+        if (item == null)
+            return;
+
+        StopRecording(false);
+        item.IsRecording = true;
+        item.SetInfo("按下新的快捷键，Esc 取消。");
+    }
+
+    [RelayCommand]
+    private void CaptureShortcutKey(InteractionBehaviors.KeyDownCommandContext? context)
+    {
+        if (context?.Parameter is not GlobalShortcutItemViewModel item || !item.IsRecording)
+            return;
+
+        var args = context.EventArgs;
+        args.Handled = true;
+        if (args.Key == Key.Escape)
+        {
+            item.IsRecording = false;
+            item.ClearStatus();
+            RefreshShortcutTexts();
+            return;
+        }
+
+        if (GlobalShortcutParser.IsModifierOnlyKey(args.Key))
+        {
+            var modifierText = GlobalShortcutParser.FormatModifiers(args.KeyModifiers);
+            item.SetInfo(string.IsNullOrWhiteSpace(modifierText)
+                ? "按下修饰键后继续输入主键。"
+                : $"继续按下主键... 当前: {modifierText}");
+            item.ShortcutText = string.IsNullOrWhiteSpace(modifierText)
+                ? "按下快捷键..."
+                : $"{modifierText}+...";
+            return;
+        }
+
+        if (!GlobalShortcutParser.TryCreateFromKeyEvent(args, out var gesture, out var error))
+        {
+            item.IsRecording = false;
+            item.SetError(error);
+            RefreshShortcutTexts();
+            return;
+        }
+
+        var gestureText = GlobalShortcutParser.Format(gesture);
+        var conflict = ShortcutItems.AsValueEnumerable().FirstOrDefault(x =>
+            x != item &&
+            string.Equals(
+                GlobalShortcutParser.NormalizeText(SettingsManager.Settings.GlobalShortcuts.GetShortcut(x.Action)),
+                gestureText, StringComparison.Ordinal));
+        if (conflict != null)
+        {
+            item.IsRecording = false;
+            item.SetError($"与“{conflict.DisplayName}”冲突。");
+            RefreshShortcutTexts();
+            return;
+        }
+
+        var candidate = BuildShortcutSettingsSnapshot();
+        candidate.SetShortcut(item.Action, gestureText);
+        var applyResult = _globalShortcutService.TryApplySettings(candidate);
+        item.IsRecording = false;
+        if (!applyResult.Success)
+        {
+            item.SetError(applyResult.Results.TryGetValue(item.Action, out var result)
+                ? result.ErrorMessage
+                : "保存失败。");
+            RefreshShortcutTexts();
+            ApplyRegistrationResults(_globalShortcutService.CurrentResults);
+            return;
+        }
+
+        SettingsManager.Settings.GlobalShortcuts = candidate;
+        SettingsManager.Save();
+        RefreshShortcutTexts();
+        ApplyRegistrationResults(applyResult.Results);
+    }
+
+    [RelayCommand]
+    private void ClearShortcut(GlobalShortcutItemViewModel? item)
+    {
+        if (item == null)
+            return;
+
+        var candidate = BuildShortcutSettingsSnapshot();
+        candidate.SetShortcut(item.Action, null);
+        var applyResult = _globalShortcutService.TryApplySettings(candidate);
+        if (!applyResult.Success)
+        {
+            item.SetError(applyResult.Results.TryGetValue(item.Action, out var result)
+                ? result.ErrorMessage
+                : "清空失败。");
+            return;
+        }
+
+        SettingsManager.Settings.GlobalShortcuts = candidate;
+        SettingsManager.Save();
+        RefreshShortcutTexts();
+        ApplyRegistrationResults(applyResult.Results);
+    }
+
+    private void RefreshShortcutTexts()
+    {
+        foreach (var item in ShortcutItems)
+        {
+            if (item.IsRecording)
+                continue;
+
+            item.ApplyShortcutText(GlobalShortcutParser.NormalizeText(
+                SettingsManager.Settings.GlobalShortcuts.GetShortcut(item.Action)));
+        }
+    }
+
+    private void ApplyRegistrationResults(
+        IReadOnlyDictionary<GlobalShortcutAction, GlobalShortcutRegistrationResult> results)
+    {
+        foreach (var item in ShortcutItems)
+        {
+            if (item.IsRecording)
+                continue;
+
+            if (!results.TryGetValue(item.Action, out var result))
+            {
+                item.ClearStatus();
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+            {
+                item.SetError(result.ErrorMessage);
+                continue;
+            }
+
+            item.ClearStatus();
+        }
+    }
+
+    private void StopRecording(bool clearStatus)
+    {
+        foreach (var shortcutItem in ShortcutItems)
+        {
+            shortcutItem.IsRecording = false;
+            if (clearStatus)
+                shortcutItem.ClearStatus();
+        }
+    }
+
+    private GlobalShortcutSettings BuildShortcutSettingsSnapshot()
+    {
+        var snapshot = SettingsManager.Settings.GlobalShortcuts.Clone();
+        snapshot.EnableGlobalShortcuts = EnableGlobalShortcuts;
+        return snapshot;
+    }
+}
+
+public sealed class ReleaseNoteItemViewModel(GitHubReleaseInfo release)
+{
+    public string Title { get; } = release.Title;
+    public string PublishedAt { get; } = release.PublishedAt;
+    public string Summary { get; } = release.Summary;
+}

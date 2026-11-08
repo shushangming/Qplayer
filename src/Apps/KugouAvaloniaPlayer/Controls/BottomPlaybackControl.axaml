@@ -1,0 +1,378 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:local="clr-namespace:KugouAvaloniaPlayer.Controls"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             x:Class="KugouAvaloniaPlayer.Controls.BottomPlaybackControl"
+             x:DataType="vm:MainWindowViewModel"
+             Name="PlaybackControlPanel">
+
+    <UserControl.Styles>
+        <Style Selector="suki|GlassCard#MiniPlayer">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="suki|GlassCard#MiniPlayer.hidden">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="ComboBox.QualityCombo">
+            <Setter Property="MinWidth" Value="96" />
+        </Style>
+        <Style Selector="ComboBox.QualityCombo ComboBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.QueueDependent.empty">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <suki:GlassCard Name="MiniPlayer"
+                        VerticalAlignment="Bottom"
+                        Margin="20,0,20,16"
+                        Padding="16,0"
+                        CornerRadius="18"
+                        Classes.hidden="{Binding NowPlaying.IsOpen}"
+                        Height="72"
+                        IsOpaque="{Binding IsMiniPlayerOpaque, FallbackValue=True}">
+
+            <Grid ColumnDefinitions="*, Auto, *">
+
+                <!-- 左侧：封面 + 歌曲信息 -->
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
+                    <Button Command="{Binding NowPlaying.OpenCommand}"
+                            Classes="Basic"
+                            Padding="0"
+                            Cursor="Hand"
+                            IsVisible="{Binding Player.HasDisplayPlaybackQueue}"
+                            VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="Auto, Auto">
+                            <Border CornerRadius="10"
+                                    ClipToBounds="True"
+                                    Width="48"
+                                    Height="48">
+                                <Image behaviors:LocalArtworkImageBehavior.Source="{Binding Player.DisplayedPlayingSong.Cover}"
+                                       behaviors:LocalArtworkImageBehavior.DecodePixelWidth="96"
+                                       asyncImageLoader:ImageLoader.Source="{Binding Player.DisplayedPlayingSong.Cover, Converter={StaticResource RemoteImageSourceConverter}}"
+                                       behaviors:ImageRenderOptions.InterpolationSource="{Binding Player.DisplayedPlayingSong.Cover}"
+                                       Stretch="UniformToFill" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Margin="12,0,0,0"
+                                        Spacing="4">
+                                <local:ScrollingTextBlock Text="{Binding Player.DisplayedPlayingSong.DisplayTitle, TargetNullValue='KA Music'}"
+                                                          Width="200"
+                                                          Height="18"
+                                                          FontWeight="Bold"
+                                                          FontSize="13"
+                                                          Foreground="{DynamicResource SukiText}" />
+                                <TextBlock Text="{Binding Player.DisplayedPlayingSong.Singer, TargetNullValue='Ready'}"
+                                           FontSize="11"
+                                           Opacity="0.55"
+                                           Width="200"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource SukiLowText}" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+
+                </StackPanel>
+
+                <!-- 中间：播放控制 + 进度条 -->
+                <Grid Grid.Column="1"
+                      RowDefinitions="Auto, Auto"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Center">
+
+                    <!-- 播放按钮组 -->
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="16"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Margin="0,10,0,-15">
+                        <Button Cursor="Hand"
+                                Command="{Binding Player.ToggleLikeCommand}"
+                                Classes="Basic QueueDependent"
+                                Classes.empty="{Binding !Player.HasDisplayPlaybackQueue}"
+                                Width="32"
+                                Height="32"
+                                VerticalAlignment="Center">
+                            <Panel>
+                                <Svg Path="/Assets/FavoriteBorder.svg"
+                                     Css="path { fill: red; }"
+                                     Width="18" Height="18"
+                                     IsVisible="{Binding Player.IsLiked}" />
+                                <Svg Classes="ThemeSvgIcon"
+                                     Path="/Assets/FavoriteBorder.svg"
+                                     Width="18" Height="18"
+                                     Opacity="0.45"
+                                     IsVisible="{Binding !Player.IsLiked}" />
+                            </Panel>
+                        </Button>
+                        <Button Cursor="Hand"
+                                Command="{Binding Player.PlayPreviousCommand}"
+                                Classes="Basic"
+                                Width="32" Height="32">
+                            <Svg Classes="ThemeSvgIcon" Path="/Assets/backward.svg" Width="16" Height="16" />
+                        </Button>
+                        <Button Cursor="Hand"
+                                Command="{Binding Player.TogglePlayPauseCommand}"
+                                Classes="Basic"
+                                Width="40"
+                                Height="40">
+                            <Panel>
+                                <Svg Classes="ThemeSvgIcon"
+                                     Path="/Assets/pause-1006-svgrepo-com.svg"
+                                     Width="22" Height="22"
+                                     IsVisible="{Binding Player.IsPlayingAudio}" />
+                                <Svg Classes="ThemeSvgIcon"
+                                     Path="/Assets/play-1003-svgrepo-com.svg"
+                                     Width="22" Height="22"
+                                     IsVisible="{Binding !Player.IsPlayingAudio}" />
+                            </Panel>
+                        </Button>
+                        <Button Cursor="Hand"
+                                Command="{Binding Player.PlayNextCommand}"
+                                Classes="Basic"
+                                Width="32" Height="32">
+                            <Svg Classes="ThemeSvgIcon" Path="/Assets/next-svgrepo-com.svg" Width="16" Height="16" />
+                        </Button>
+                        <Button Cursor="Hand"
+                                Command="{Binding Player.CyclePlayModeCommand}"
+                                Classes="Basic"
+                                Width="32" Height="32"
+                                VerticalAlignment="Center">
+                            <Panel>
+                                <!-- 列表循环 -->
+                                <Svg Classes="ThemeSvgIcon"
+                                     Path="/Assets/repeat-svgrepo-com.svg"
+                                     Width="18" Height="18"
+                                     IsVisible="{Binding Player.CurrentPlayMode, Converter={StaticResource EnumEqualityConverter}, ConverterParameter=Normal}" />
+                                <!-- 单曲循环 -->
+                                <Svg Classes="ThemeSvgIcon"
+                                     Path="/Assets/repeat-one.svg"
+                                     Width="18" Height="18"
+                                     IsVisible="{Binding Player.CurrentPlayMode, Converter={StaticResource EnumEqualityConverter}, ConverterParameter=RepeatOne}" />
+                                <!-- 随机播放 -->
+                                <Svg Classes="ThemeSvgIcon"
+                                     Path="/Assets/shuffle-svgrepo-com.svg"
+                                     Width="18" Height="18"
+                                     IsVisible="{Binding Player.CurrentPlayMode, Converter={StaticResource EnumEqualityConverter}, ConverterParameter=Shuffle}" />
+                            </Panel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- 进度条 -->
+                    <Grid Grid.Row="1"
+                          ColumnDefinitions="Auto, *, Auto"
+                          Width="380"
+                          Margin="0,6,0,0">
+                        <TextBlock
+                            Text="{Binding Player.CurrentPositionSeconds, Converter={StaticResource SecondsToTimeConverter}}"
+                            FontSize="10"
+                            Opacity="0.45"
+                            Width="46"
+                            TextAlignment="Right"
+                            VerticalAlignment="Center" />
+                        <Slider Grid.Column="1"
+                                Minimum="0"
+                                Maximum="{Binding Player.TotalDurationSeconds}"
+                                Value="{Binding Player.CurrentPositionSeconds}"
+                                Margin="10,0"
+                                IsSnapToTickEnabled="False"
+                                HorizontalAlignment="Stretch"
+                                Classes="Player" />
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding Player.TotalDurationSeconds, Converter={StaticResource SecondsToTimeConverter}}"
+                                   FontSize="10"
+                                   Opacity="0.45"
+                                   Width="46"
+                                   TextAlignment="Left"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                </Grid>
+
+                <!-- 右侧：音量 + 工具按钮 -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right">
+
+                    <!-- 音量控制：悬浮展开竖向滑块，点击按钮静音切换 -->
+                    <Button Cursor="Hand"
+                            Classes="Basic"
+                            Width="32"
+                            Height="32"
+                            ToolTip.Tip="音量"
+                            PointerEntered="VolumeButton_OnPointerEntered"
+                            PointerWheelChanged="VolumeButton_OnPointerWheelChanged"
+                            Click="VolumeButton_OnClick">
+                        <!-- 使用AttachedFlyout以禁用Button的触发影响 -->
+                        <FlyoutBase.AttachedFlyout>
+                            <Flyout Placement="Top"
+                                    ShowMode="TransientWithDismissOnPointerMoveAway"
+                                    OverlayInputPassThroughElement="{Binding #PlaybackControlPanel}">
+                                <suki:GlassCard Height="150" Width="40" HorizontalContentAlignment="Center" Margin="0"
+                                                Padding="3 12 3 2" Focusable="False">
+                                    <StackPanel Orientation="Vertical" Spacing="8">
+                                        <TextBlock DockPanel.Dock="Top" Focusable="False"
+                                                   Text="{Binding Player.MusicVolume, StringFormat='{}{0:P0}'}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center" />
+                                        <LayoutTransformControl LayoutTransform="rotate(-90deg)"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Stretch">
+                                            <Slider Width="100" Height="5"
+                                                    Minimum="0" Maximum="1"
+                                                    SmallChange="0.05" LargeChange="0.1"
+                                                    TickFrequency="0.25"
+                                                    Value="{Binding Player.MusicVolume}"
+                                                    Classes="Player" x:Name="VolumeSlider"
+                                                    PointerWheelChanged="VolumeSlider_OnPointerWheelChanged">
+                                                <Slider.Styles>
+                                                    <Style Selector="Slider /template/ Thumb#thumb">
+                                                        <Setter Property="Height" Value="1" />
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </Style>
+                                                </Slider.Styles>
+                                            </Slider>
+                                        </LayoutTransformControl>
+                                    </StackPanel>
+                                </suki:GlassCard>
+                            </Flyout>
+                        </FlyoutBase.AttachedFlyout>
+                        <Panel>
+                            <Svg Classes="ThemeSvgIcon"
+                                 Path="/Assets/volume-max-svgrepo-com.svg"
+                                 Width="18"
+                                 Height="18"
+                                 Opacity="0.7"
+                                 IsVisible="{Binding !Player.IsMuted}" />
+                            <Svg Classes="ThemeSvgIcon"
+                                 Path="/Assets/VolumeOff.svg"
+                                 Width="18"
+                                 Height="18"
+                                 Opacity="0.7"
+                                 IsVisible="{Binding Player.IsMuted}" />
+                        </Panel>
+                    </Button>
+
+                    <!--~1~ 分隔感 @1@
+                    <Border Width="1" Height="20" Opacity="0.12" Background="Gray" Margin="4,0" />-->
+
+                    <Button Cursor="Hand"
+                            Classes="Basic"
+                            VerticalAlignment="Center"
+                            Padding="8,0"
+                            MinWidth="68"
+                            Height="32">
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="0.5x"
+                                          Command="{Binding Player.SetPlaybackSpeedOptionCommand}"
+                                          CommandParameter="0.5x" />
+                                <MenuItem Header="0.75x"
+                                          Command="{Binding Player.SetPlaybackSpeedOptionCommand}"
+                                          CommandParameter="0.75x" />
+                                <MenuItem Header="1x"
+                                          Command="{Binding Player.SetPlaybackSpeedOptionCommand}"
+                                          CommandParameter="1x" />
+                                <MenuItem Header="1.25x"
+                                          Command="{Binding Player.SetPlaybackSpeedOptionCommand}"
+                                          CommandParameter="1.25x" />
+                                <MenuItem Header="1.5x"
+                                          Command="{Binding Player.SetPlaybackSpeedOptionCommand}"
+                                          CommandParameter="1.5x" />
+                                <MenuItem Header="2x"
+                                          Command="{Binding Player.SetPlaybackSpeedOptionCommand}"
+                                          CommandParameter="2x" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="4"
+                                    VerticalAlignment="Center">
+                            <Svg Classes="ThemeSvgIcon"
+                                 Path="/Assets/speed-svgrepo-com.svg"
+                                 Width="16"
+                                 Height="16" />
+                            <TextBlock Text="{Binding Player.PlaybackSpeedSelection}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    
+                    <ComboBox Classes="QualityCombo"
+                              ItemsSource="{Binding Player.QualityOptions}"
+                              SelectedItem="{Binding Player.QualitySelection}"
+                              IsEnabled="{Binding Player.IsSwitchingQuality, Converter={x:Static BoolConverters.Not}}"
+                              VerticalAlignment="Center">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate DataType="x:String">
+                                <TextBlock
+                                    Text="{Binding ., Converter={StaticResource PlaybackQualityDisplayConverter}}" />
+
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                        <ComboBox.SelectionBoxItemTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    Text="{Binding ., Converter={StaticResource PlaybackQualityDisplayConverter}}" />
+                            </DataTemplate>
+                        </ComboBox.SelectionBoxItemTemplate>
+                    </ComboBox>
+                    
+                    <!-- 队列按钮 -->
+                    <Button x:Name="QueueButton"
+                            Cursor="Hand"
+                            Classes="Basic"
+                            ToolTip.Tip="播放列表"
+                            Width="32" Height="32">
+                        <Button.Flyout>
+                            <Flyout Placement="TopEdgeAlignedRight"
+                                    Opening="QueueFlyout_OnOpening"
+                                    Opened="QueueFlyout_OnOpened"
+                                    Closed="QueueFlyout_OnClosed">
+                                <local:PlaybackQueueControl x:Name="QueueFlyoutContent"
+                                                            DataContext="{Binding}"
+                                                            Width="360"
+                                                            MinWidth="280"
+                                                            MaxWidth="460"
+                                                            MaxHeight="560" />
+                            </Flyout>
+                        </Button.Flyout>
+                        <Svg Classes="ThemeSvgIcon" Path="/Assets/PlayList.svg" Width="18" Height="18" />
+                    </Button>
+
+                    <!-- 桌面歌词 -->
+                    <Button Cursor="Hand"
+                            Command="{Binding ToggleDesktopLyricCommand}"
+                            Classes="Basic"
+                            ToolTip.Tip="桌面歌词"
+                            Width="32" Height="32">
+                        <Svg Classes="ThemeSvgIcon"
+                             Path="/Assets/DesktopLyric2.svg"
+                             Width="20" Height="20"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+
+            </Grid>
+        </suki:GlassCard>
+    </Grid>
+</UserControl>

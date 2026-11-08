@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:KugouAvaloniaPlayer.ViewModels"
+             xmlns:behaviors="using:KugouAvaloniaPlayer.Behaviors"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="60"
+             Name="Root"
+             x:Class="KugouAvaloniaPlayer.Controls.SongListItemControl"
+             x:DataType="vm:SongItem">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.SongTitle">
+            <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
+        </Style>
+        <Style Selector="TextBlock.SongTitle.playing">
+            <Setter Property="Foreground" Value="{DynamicResource SukiPrimaryColor75}" />
+        </Style>
+        <Style Selector="TextBlock.SongArtist,
+                         TextBlock.SongAlbum">
+            <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
+        </Style>
+        <Style Selector="TextBlock.SongDuration">
+            <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Name="ItemShell"
+            Classes="SongListItemShell"
+            CornerRadius="14"
+            Padding="6"
+            Margin="0,2"
+            ContextRequested="ItemShell_OnContextRequested">
+        <Grid ColumnDefinitions="Auto, *, 150, 80, 150"
+              Background="Transparent"
+              behaviors:InteractionBehaviors.DoubleTappedCommand="{Binding #Root.PlayCommand}"
+              behaviors:InteractionBehaviors.DoubleTappedCommandParameter="{Binding .}">
+            <Border Name="HoverOverlay"
+                    Classes="SongListHoverOverlay"
+                    Grid.ColumnSpan="5"
+                    CornerRadius="12"
+                    Background="{StaticResource SukiControlTouchBackground}" />
+
+            <Border Grid.Column="0" CornerRadius="6" ClipToBounds="True" Width="45" Height="45" Margin="8,5">
+                <Image asyncImageLoader:ImageLoader.Source="{Binding Cover}"
+                       behaviors:ImageRenderOptions.InterpolationSource="{Binding Cover}"
+                       Width="45"
+                       Height="45"
+                       Stretch="UniformToFill" />
+            </Border>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0" Spacing="3">
+                <TextBlock Text="{Binding Name}"
+                           Classes="SongTitle"
+                           Classes.playing="{Binding IsPlaying}"
+                           FontWeight="Bold"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Singer}" FontSize="12" FontWeight="ExtraLight"
+                           Classes="SongArtist"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="{Binding AlbumName}" VerticalAlignment="Center"
+                       Classes="SongAlbum"
+                       TextTrimming="CharacterEllipsis" FontWeight="ExtraLight"/>
+
+            <TextBlock Grid.Column="3"
+                       Text="{Binding DurationSeconds,Converter={StaticResource SecondsToTimeConverter}}"
+                       Classes="SongDuration"
+                       VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
+                        HorizontalAlignment="Right" Margin="0,0,10,0">
+
+                <!-- 拖拽排序把手：长按拖到目标位置即可调整顺序 -->
+                <Border Name="DragHandle"
+                        Classes="DragHandle"
+                        Width="22"
+                        Height="22"
+                        CornerRadius="6"
+                        Background="Transparent"
+                        Cursor="SizeAll"
+                        ToolTip.Tip="按住拖动可调整顺序"
+                        IsVisible="{Binding #Root.ShowDragHandle}">
+                    <PathIcon Data="M3,4 L15,4 L15,5.6 L3,5.6 Z M3,8.2 L15,8.2 L15,9.8 L3,9.8 Z M3,12.4 L15,12.4 L15,14 L3,14 Z"
+                              Width="18"
+                              Height="18"
+                              Foreground="{DynamicResource SukiLowText}" />
+                </Border>
+
+                <Button Cursor="Hand" Classes="Basic" ToolTip.Tip="播放"
+                        Command="{Binding #Root.PlayCommand}"
+                        CommandParameter="{Binding .}">
+                    <Panel Width="15" Height="15">
+                        <PathIcon Data="M0,0 L6,3 L0,6 Z"
+                                  Width="15"
+                                  Height="15"
+                                  IsVisible="{Binding !IsPlaying}"
+                                  Foreground="{DynamicResource SukiLowText}" />
+                        <PathIcon Data="M2,1 L5,1 L5,14 L2,14 Z M10,1 L13,1 L13,14 L10,14 Z"
+                                  Width="15"
+                                  Height="15"
+                                  IsVisible="{Binding IsPlaying}"
+                                  Foreground="{DynamicResource SukiLowText}" />
+                    </Panel>
+                </Button>
+
+                <Button Cursor="Hand" x:Name="MoreButton"
+                        Classes="Basic"
+                        ToolTip.Tip="更多操作"
+                        Click="MoreButton_OnClick">
+                    <PathIcon Data="M12 20q-.825 0-1.412-.587T10 18t.588-1.412T12 16t1.413.588T14 18t-.587 1.413T12 20m0-6q-.825 0-1.412-.587T10 12t.588-1.412T12 10t1.413.588T14 12t-.587 1.413T12 14m0-6q-.825 0-1.412-.587T10 6t.588-1.412T12 4t1.413.588T14 6t-.587 1.413T12 8"
+                              Width="25"
+                              Height="25"
+                              Foreground="{DynamicResource SukiLowText}" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
